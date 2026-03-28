@@ -89,6 +89,11 @@ export function resolveActivePublicBaseUrl(configuredUrl?: string, port = getReq
 
   try {
     const parsed = new URL(configuredUrl);
+
+    if (parsed.port && Number(parsed.port) !== port) {
+      return detectPublicBaseUrl(port);
+    }
+
     if (!isIpv4Address(parsed.hostname)) {
       return parsed.toString().replace(/\/$/, "");
     }

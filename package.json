@@ -24,7 +24,7 @@
     "url": "https://github.com/jx-grxf/ta-caruso-streaming-client.git"
   },
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node scripts/dev-runner.mjs",
     "dev:desktop": "npm run build && electron .",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/index.js",
