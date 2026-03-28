@@ -2,10 +2,27 @@
   "name": "ta-caruso-streaming-client",
   "version": "0.1.0",
   "private": true,
+  "author": "Johannes Grof",
   "license": "MIT",
   "type": "module",
   "main": "dist/electron/main.js",
   "description": "Local streaming bridge for T+A Caruso devices with TuneIn and Deezer providers.",
+  "keywords": [
+    "caruso",
+    "upnp",
+    "dlna",
+    "electron",
+    "tunein",
+    "internet-radio"
+  ],
+  "homepage": "https://github.com/jx-grxf/ta-caruso-streaming-client",
+  "bugs": {
+    "url": "https://github.com/jx-grxf/ta-caruso-streaming-client/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jx-grxf/ta-caruso-streaming-client.git"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "dev:desktop": "npm run build && electron .",
