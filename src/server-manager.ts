@@ -23,7 +23,7 @@ export function createServerManager(options: ServerManagerOptions) {
       }
 
       const built = await createApp(options.dataDir);
-      let ssdp = await createCurrentSsdpServer(built.context.storage, built.context.upnp.serverUuid, built.context.upnp.friendlyName);
+      let ssdp = await createCurrentSsdpServer(built.context.storage, built.context.upnp.serverUuid);
       let networkSignature = getNetworkSignature();
       let refreshInFlight: Promise<void> | undefined;
       let monitorInterval: NodeJS.Timeout | undefined;
@@ -45,7 +45,7 @@ export function createServerManager(options: ServerManagerOptions) {
             return;
           }
 
-          const nextSsdp = await createCurrentSsdpServer(built.context.storage, built.context.upnp.serverUuid, built.context.upnp.friendlyName);
+          const nextSsdp = await createCurrentSsdpServer(built.context.storage, built.context.upnp.serverUuid);
           await ssdp.stop();
           ssdp = nextSsdp;
           await ssdp.start();
@@ -115,12 +115,12 @@ function getNetworkSignature(): string {
 
 async function createCurrentSsdpServer(
   storage: Awaited<ReturnType<typeof createApp>>["context"]["storage"],
-  serverUuid: string,
-  friendlyName: string
+  serverUuid: string
 ) {
   const persistedConfig = await storage.getConfig();
   const resolvedPublicBaseUrl = resolveActivePublicBaseUrl(persistedConfig.publicBaseUrl, config.port);
   const addresses = detectExternalIPv4Addresses();
+  const friendlyName = `${persistedConfig.carusoFriendlyName || config.carusoFriendlyName || "Caruso"} auf ${process.env.HOSTNAME || "MacBook"}`;
 
   return createSsdpServer({
     locations: addresses.length > 0

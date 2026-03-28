@@ -236,6 +236,15 @@ const TUNEIN_ROOT_CATEGORIES = [
 ];
 const MAX_TUNEIN_BROWSE_ITEMS = 60;
 
+function isAllowedTuneInBrowseUrl(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(rawUrl);
+    return ["http:", "https:"].includes(parsed.protocol) && parsed.hostname === "opml.radiotime.com";
+  } catch {
+    return false;
+  }
+}
+
 export async function buildContentDirectoryBrowseResponse(
   args: Record<string, string>,
   context: BrowseContext
@@ -473,7 +482,7 @@ async function buildBrowseTree(context: BrowseContext, objectId: string): Promis
     id: "tunein",
     parentId: "0",
     title: "TuneIn",
-    children: ["tunein-sender"],
+    children: ["tunein-sender", "tunein-browse-root"],
     upnpClass: "object.container.storageFolder"
   });
 
@@ -520,7 +529,9 @@ async function buildBrowseTree(context: BrowseContext, objectId: string): Promis
 
   if (objectId.startsWith("tunein-browse:")) {
     const browseUrl = decodeBrowseContainerId(objectId);
-    const items = await browseDirectory(browseUrl).catch(() => []).then((entries) => entries.slice(0, MAX_TUNEIN_BROWSE_ITEMS));
+    const items = isAllowedTuneInBrowseUrl(browseUrl)
+      ? await browseDirectory(browseUrl).catch(() => []).then((entries) => entries.slice(0, MAX_TUNEIN_BROWSE_ITEMS))
+      : [];
     const childIds: string[] = [];
 
     for (const item of items) {
@@ -604,7 +615,16 @@ function buildFallbackBrowseTree(context: BrowseContext): Map<string, BrowseNode
     id: "tunein",
     parentId: "0",
     title: "TuneIn",
-    children: ["tunein-sender"],
+    children: ["tunein-sender", "tunein-browse-root"],
+    upnpClass: "object.container.storageFolder"
+  });
+
+  tree.set("tunein-browse-root", {
+    kind: "container",
+    id: "tunein-browse-root",
+    parentId: "tunein",
+    title: "Browse",
+    children: [],
     upnpClass: "object.container.storageFolder"
   });
 

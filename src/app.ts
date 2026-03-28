@@ -40,6 +40,16 @@ export type AppContext = {
 
 let previousCpuSnapshot = takeCpuSnapshot();
 
+class HttpError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: number
+  ) {
+    super(message);
+    this.name = "HttpError";
+  }
+}
+
 function takeCpuSnapshot() {
   const totals = os.cpus().reduce((accumulator, cpu) => {
     const times = cpu.times;
@@ -92,6 +102,10 @@ function mergeConfig(runtimeConfig: PersistedConfig): PersistedConfig {
     deezerArl: runtimeConfig.deezerArl || baseConfig.deezerArl,
     uiLanguage: runtimeConfig.uiLanguage || "de"
   };
+}
+
+function buildServerFriendlyName(configuredName?: string): string {
+  return `${configuredName || "Caruso"} auf ${process.env.HOSTNAME || "MacBook"}`;
 }
 
 function normalizeFavoriteId(value: string): string {
@@ -196,10 +210,61 @@ function resolveRequestBaseUrl(hostHeader: string | undefined, fallbackBaseUrl: 
   }
 }
 
+function isPrivateHostname(hostname: string): boolean {
+  if (hostname === "localhost") {
+    return true;
+  }
+
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname)) {
+    const [a, b] = hostname.split(".").map(Number);
+    return (
+      a === 10 ||
+      a === 127 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168)
+    );
+  }
+
+  return hostname.endsWith(".local");
+}
+
+function parseAndValidateUrl(rawValue: string, options?: {
+  allowedHosts?: string[];
+  allowPrivateHosts?: boolean;
+  allowHostnames?: boolean;
+}): URL {
+  let parsed: URL;
+
+  try {
+    parsed = new URL(rawValue);
+  } catch {
+    throw new HttpError("Invalid URL.", 400);
+  }
+
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new HttpError("Only http and https URLs are supported.", 400);
+  }
+
+  if (options?.allowedHosts && !options.allowedHosts.includes(parsed.hostname)) {
+    throw new HttpError("URL host is not allowed.", 400);
+  }
+
+  if (!options?.allowPrivateHosts && isPrivateHostname(parsed.hostname)) {
+    throw new HttpError("Private or local network URLs are not allowed here.", 400);
+  }
+
+  if (options?.allowHostnames === false && !/^\d{1,3}(?:\.\d{1,3}){3}$/.test(parsed.hostname)) {
+    throw new HttpError("Renderer URL must use an IPv4 address.", 400);
+  }
+
+  return parsed;
+}
+
 export async function createApp(dataDir: string) {
   const storage = new AppStorage(dataDir);
   const serverUuid = createMediaServerUuid(dataDir);
-  const serverFriendlyName = `${baseConfig.carusoFriendlyName || "Caruso"} auf ${process.env.HOSTNAME || "MacBook"}`;
+  const initialConfig = mergeConfig(await storage.getConfig());
   const rendererSessions = new Map<string, { title: string; quality: string; sourceType: string }>();
   const app = Fastify({
     logger: {
@@ -223,7 +288,7 @@ export async function createApp(dataDir: string) {
     storage,
     upnp: {
       serverUuid,
-      friendlyName: serverFriendlyName
+      friendlyName: buildServerFriendlyName(initialConfig.carusoFriendlyName)
     }
   };
 
@@ -310,7 +375,10 @@ export async function createApp(dataDir: string) {
       uiLanguage: body.uiLanguage === "en" ? "en" : "de"
     });
 
-    return mergeConfig(nextConfig);
+    const mergedConfig = mergeConfig(nextConfig);
+    context.upnp.friendlyName = buildServerFriendlyName(mergedConfig.carusoFriendlyName);
+
+    return mergedConfig;
   });
 
   app.get("/api/discover", async () => {
@@ -387,8 +455,11 @@ export async function createApp(dataDir: string) {
 
   app.get("/api/tunein/browse", async (request) => {
     const browseUrl = (request.query as { url?: string }).url || "https://opml.radiotime.com/Browse.ashx?render=xml";
+    const validatedUrl = parseAndValidateUrl(browseUrl, {
+      allowedHosts: ["opml.radiotime.com"]
+    });
     return {
-      items: await browseDirectory(browseUrl)
+      items: await browseDirectory(validatedUrl.toString())
     };
   });
 
@@ -400,12 +471,14 @@ export async function createApp(dataDir: string) {
     const body = request.body as Partial<TuneInFavorite> & { title?: string; streamUrl?: string; id?: string };
 
     if (!body.title?.trim() || !body.streamUrl?.trim()) {
-      throw new Error("title and streamUrl are required.");
+      throw new HttpError("title and streamUrl are required.", 400);
     }
+
+    parseAndValidateUrl(body.streamUrl.trim());
 
     const inspected = await inspectStream(body.streamUrl.trim());
     if (!isSupportedStreamMimeType(inspected.mimeType)) {
-      throw new Error(`Unsupported stream format for Caruso: ${inspected.mimeType}`);
+      throw new HttpError(`Unsupported stream format for Caruso: ${inspected.mimeType}`, 400);
     }
 
     return {
@@ -432,10 +505,14 @@ export async function createApp(dataDir: string) {
   app.get("/api/renderer/status", async (request) => {
     const deviceDescriptionUrl = (request.query as { deviceDescriptionUrl?: string }).deviceDescriptionUrl;
     if (!deviceDescriptionUrl) {
-      throw new Error("deviceDescriptionUrl is required.");
+      throw new HttpError("deviceDescriptionUrl is required.", 400);
     }
 
-    const status = await getRendererStatus(deviceDescriptionUrl);
+    const validatedDeviceDescriptionUrl = parseAndValidateUrl(deviceDescriptionUrl, {
+      allowPrivateHosts: true
+    });
+
+    const status = await getRendererStatus(validatedDeviceDescriptionUrl.toString());
     const activeUris = [status.currentTrackUri, status.currentUri].map(normalizeUriForCompare);
     const matchedSessionEntry = [...rendererSessions.entries()]
       .find(([uri]) => activeUris.includes(normalizeUriForCompare(uri)));
@@ -514,7 +591,7 @@ export async function createApp(dataDir: string) {
       return buildContentDirectoryCapabilitiesResponse(actionName);
     }
 
-    throw new Error(`Unsupported ContentDirectory action ${actionName}.`);
+    throw new HttpError(`Unsupported ContentDirectory action ${actionName}.`, 400);
   });
 
   app.post("/upnp/control/connection-manager", async (request, reply) => {
@@ -534,13 +611,13 @@ export async function createApp(dataDir: string) {
   app.post("/api/library/folders", async (request) => {
     const body = request.body as { path?: string };
     if (!body.path?.trim()) {
-      throw new Error("Folder path is required.");
+      throw new HttpError("Folder path is required.", 400);
     }
 
     const folderPath = path.resolve(body.path.trim());
     const stats = await fs.stat(folderPath);
     if (!stats.isDirectory()) {
-      throw new Error("Given path is not a directory.");
+      throw new HttpError("Given path is not a directory.", 400);
     }
 
     return {
@@ -551,7 +628,7 @@ export async function createApp(dataDir: string) {
   app.delete("/api/library/folders", async (request) => {
     const folderPath = (request.query as { path?: string }).path;
     if (!folderPath?.trim()) {
-      throw new Error("Folder path is required.");
+      throw new HttpError("Folder path is required.", 400);
     }
 
     return {
@@ -574,7 +651,7 @@ export async function createApp(dataDir: string) {
       return reply.code(400).send({ error: "Missing url query parameter." });
     }
 
-    const resolved = await resolvePlayableUrl(source);
+    const resolved = await resolvePlayableUrl(parseAndValidateUrl(source).toString());
     const upstream = await fetch(resolved, {
       headers: {
         "user-agent": "CarusoBridge/0.2.0",
@@ -605,6 +682,7 @@ export async function createApp(dataDir: string) {
       return reply.code(404).send({ error: "Unknown TuneIn station." });
     }
 
+    parseAndValidateUrl(source);
     const inspected = await inspectStream(source);
     const upstream = await fetch(inspected.resolvedUrl, {
       headers: {
@@ -636,7 +714,18 @@ export async function createApp(dataDir: string) {
       return reply.code(403).send({ error: "Track path is not allowed." });
     }
 
-    const ranged = await createRangedReadStream(track.absolutePath, request.headers.range);
+    let ranged;
+
+    try {
+      ranged = await createRangedReadStream(track.absolutePath, request.headers.range);
+    } catch (error) {
+      if (error instanceof RangeError) {
+        return reply.code(416).send({ error: error.message });
+      }
+
+      throw error;
+    }
+
     reply.header("content-type", getMimeType(track.absolutePath));
     reply.header("accept-ranges", "bytes");
     reply.header("content-length", String(ranged.end - ranged.start + 1));
@@ -657,12 +746,17 @@ export async function createApp(dataDir: string) {
     };
 
     if (!body.deviceDescriptionUrl || !body.streamUrl) {
-      throw new Error("deviceDescriptionUrl and streamUrl are required.");
+      throw new HttpError("deviceDescriptionUrl and streamUrl are required.", 400);
     }
+
+    const validatedDeviceDescriptionUrl = parseAndValidateUrl(body.deviceDescriptionUrl, {
+      allowPrivateHosts: true
+    });
+    const validatedStreamUrl = parseAndValidateUrl(body.streamUrl);
 
     const runtimeConfig = mergeConfig(await storage.getConfig());
     const localUrl = new URL("/stream/tunein.mp3", runtimeConfig.publicBaseUrl || baseConfig.publicBaseUrl);
-    localUrl.searchParams.set("url", body.streamUrl);
+    localUrl.searchParams.set("url", validatedStreamUrl.toString());
     const metadata = buildAudioMetadata(body.title || "TuneIn Stream", localUrl.toString(), "audio/mpeg");
     rendererSessions.set(localUrl.toString(), {
       title: body.title || "TuneIn Stream",
@@ -670,8 +764,8 @@ export async function createApp(dataDir: string) {
       sourceType: "tunein"
     });
 
-    await setAvTransportUri(body.deviceDescriptionUrl, localUrl.toString(), metadata);
-    await play(body.deviceDescriptionUrl);
+    await setAvTransportUri(validatedDeviceDescriptionUrl.toString(), localUrl.toString(), metadata);
+    await play(validatedDeviceDescriptionUrl.toString());
 
     return {
       ok: true,
@@ -686,8 +780,12 @@ export async function createApp(dataDir: string) {
     };
 
     if (!body.deviceDescriptionUrl || !body.trackId) {
-      throw new Error("deviceDescriptionUrl and trackId are required.");
+      throw new HttpError("deviceDescriptionUrl and trackId are required.", 400);
     }
+
+    const validatedDeviceDescriptionUrl = parseAndValidateUrl(body.deviceDescriptionUrl, {
+      allowPrivateHosts: true
+    });
 
     const runtimeConfig = mergeConfig(await storage.getConfig());
     const folders = await storage.getLibraryFolders();
@@ -695,7 +793,7 @@ export async function createApp(dataDir: string) {
     const track = tracks.find((item) => item.id === body.trackId);
 
     if (!track) {
-      throw new Error("Track not found.");
+      throw new HttpError("Track not found.", 404);
     }
 
     const localMimeType = getMimeType(track.absolutePath);
@@ -705,8 +803,8 @@ export async function createApp(dataDir: string) {
       sourceType: "local"
     });
 
-    await setAvTransportUri(body.deviceDescriptionUrl, track.url, buildAudioMetadata(track.title, track.url, localMimeType));
-    await play(body.deviceDescriptionUrl);
+    await setAvTransportUri(validatedDeviceDescriptionUrl.toString(), track.url, buildAudioMetadata(track.title, track.url, localMimeType));
+    await play(validatedDeviceDescriptionUrl.toString());
 
     return {
       ok: true,
@@ -716,7 +814,8 @@ export async function createApp(dataDir: string) {
 
   app.setErrorHandler((error, _request, reply) => {
     app.log.error(error);
-    reply.code(500).send({
+    const statusCode = error instanceof HttpError ? error.statusCode : 500;
+    reply.code(statusCode).send({
       error: error instanceof Error ? error.message : "Unknown error"
     });
   });
