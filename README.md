@@ -147,7 +147,7 @@ npm run desktop
 npm run dev
 ```
 
-If the default port is already in use, dev mode will automatically move to the next free port.
+Dev mode uses the configured `PORT`. If that port is already busy, change it in your environment before starting the server.
 
 ---
 
