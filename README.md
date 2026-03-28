@@ -1,43 +1,54 @@
-# Caruso Bridge
+# T+A Caruso Streaming Bridge
 
-Desktop app and local DLNA/UPnP bridge for first-generation T+A Caruso devices whose original internet radio path is no longer usable.
+A local desktop app and UPnP/DLNA bridge for first-generation T+A Caruso systems.
 
-## Overview
+It brings back a practical internet radio workflow for devices whose original native service path is no longer reliable, while also exposing local music from your Mac as a browsable media source.
 
-Caruso Bridge turns your Mac into a browsable media source and a control surface:
+## Why This Exists
 
-- exposes a local `MediaServer:1` over SSDP/DLNA so the Caruso can browse your MacBook
-- provides a `TuneIn > Sender` tree with persistent station favorites
-- supports local music folders and serves audio files directly to the Caruso
-- offers a dark web UI with renderer discovery, live device status, station search and library management
-- wraps the service in an Electron tray app for quick open/start/stop actions
+Older Caruso units can still browse UPnP/DLNA media servers on the local network, even if their original internet radio integration is no longer useful.
 
-## Current Features
+This project turns your Mac into:
 
-- TuneIn station search through TuneIn OPML endpoints
-- persistent station list for the Caruso UPnP browser
-- direct `AVTransport` playback for TuneIn and local files
-- local file scan for `mp3`, `flac`, `m4a`, `aac`, `wav`, `ogg`, `opus`, `aiff`, `alac`
-- German / English UI switch
-- live renderer status polling
-- SSDP multi-interface announcements for older DLNA clients
+- a browsable UPnP media server for the Caruso
+- a web dashboard for station search and device status
+- a local audio bridge for internet radio streams
+- a small desktop tray app for quick control
 
-## Architecture
+## Features
 
-- [`src/app.ts`](/Users/johannesgrof/Projects/Private/Private-Projects/T+A%20Internet%20Steaming%20Client/src/app.ts)
-  Fastify app, REST API, UPnP XML endpoints, stream proxy routes
-- [`src/upnp/media-server.ts`](/Users/johannesgrof/Projects/Private/Private-Projects/T+A%20Internet%20Steaming%20Client/src/upnp/media-server.ts)
-  MediaServer description, ContentDirectory browse tree, SSDP announcements
-- [`src/upnp/renderer-control.ts`](/Users/johannesgrof/Projects/Private/Private-Projects/T+A%20Internet%20Steaming%20Client/src/upnp/renderer-control.ts)
-  `AVTransport` SOAP control and renderer status polling
-- [`src/storage.ts`](/Users/johannesgrof/Projects/Private/Private-Projects/T+A%20Internet%20Steaming%20Client/src/storage.ts)
-  persisted app config, library folders and TuneIn favorites
-- [`ui/index.html`](/Users/johannesgrof/Projects/Private/Private-Projects/T+A%20Internet%20Steaming%20Client/ui/index.html)
-  dark UI shell
-- [`ui/app.js`](/Users/johannesgrof/Projects/Private/Private-Projects/T+A%20Internet%20Steaming%20Client/ui/app.js)
-  UI logic, i18n, polling and actions
-- [`electron/main.ts`](/Users/johannesgrof/Projects/Private/Private-Projects/T+A%20Internet%20Steaming%20Client/electron/main.ts)
-  desktop shell, tray menu and native folder picker
+- TuneIn search and browse integration
+- Radio Browser search for alternative and higher-bitrate radio streams
+- persistent station list that appears on the Caruso inside the UPnP tree
+- local music library support from user-selected folders
+- direct playback controls from the dashboard for compatible renderers
+- German and English UI
+- live renderer status and server metrics
+- automatic network rebinding when switching between LAN and Wi-Fi
+- Electron tray app with quick open/start/stop actions
+
+## How It Works
+
+The bridge announces itself as a UPnP/DLNA media server on your local network.
+
+On the Caruso, you browse the bridge as a network media source and access:
+
+- `TuneIn`
+- `TuneIn > Sender`
+- `TuneIn > Browse`
+- `Local Music`
+
+Stations added from the dashboard are resolved to their real stream URLs and stored locally, so they appear in the browsable station list on the device.
+
+## Screenshot
+
+The app ships with a dark dashboard optimized for both desktop and mobile browsers, including Safari on iPhone.
+
+## Requirements
+
+- macOS
+- Node.js 20 or newer
+- a T+A Caruso on the same local network
 
 ## Quick Start
 
@@ -56,38 +67,98 @@ npm run dev
 
 ## Configuration
 
-The most important setting is `PUBLIC_BASE_URL`. The Caruso must be able to reach your Mac on a real LAN address, not `127.0.0.1`.
+The bridge usually detects the correct local network address automatically. You can still override it if needed.
+
+Example `.env`:
 
 ```bash
 PORT=3847
 HOST=0.0.0.0
 PUBLIC_BASE_URL=http://192.168.x.y:3847
-CARUSO_FRIENDLY_NAME=Caruso
+CARUSO_FRIENDLY_NAME=Caruso on MacBook
 DEEZER_ARL=
 DATA_DIR=/custom/path/for/app-data
 ```
 
-## User Flow
+Important notes:
 
-1. Start the desktop app or local server.
-2. Open the web UI.
-3. Select the T+A Caruso renderer under `Caruso / Renderer`.
-4. Search TuneIn and add stations to the Caruso station list.
-5. On the Caruso browse `TuneIn > Sender`.
-6. Optionally add local folders and browse them under `Lokale Musik`.
+- `PUBLIC_BASE_URL` must be reachable by the Caruso on your LAN
+- the desktop UI itself is loaded locally via `127.0.0.1`
+- when your Mac changes from LAN to Wi-Fi, the bridge rebinds automatically
 
-## Verification
+## Usage
 
-Verified locally with:
+1. Start the app.
+2. Open the dashboard.
+3. Let the bridge discover your Caruso renderer.
+4. Search for stations with TuneIn or Radio Browser.
+5. Add stations to the saved station list.
+6. On the Caruso, open the UPnP/DLNA media source and browse the bridge.
+7. Open `TuneIn > Sender` to play saved stations.
+8. Add local music folders if you also want file-based playback.
 
-- `npm run check`
-- `npm run build`
-- UPnP SSDP discovery on the local network
-- SOAP `Browse` against `ContentDirectory`
-- direct TuneIn playback to a detected T+A Caruso renderer
+## Project Structure
 
-## Known Gaps
+- `src/app.ts`: Fastify server, REST API, stream routes, UI hosting
+- `src/upnp/media-server.ts`: DLNA/UPnP MediaServer implementation
+- `src/upnp/renderer-control.ts`: renderer discovery, SOAP transport, status polling
+- `src/providers/tunein.ts`: TuneIn search, browse and stream resolution
+- `src/providers/radio-browser.ts`: Radio Browser integration
+- `src/storage.ts`: persisted settings, folders and saved stations
+- `src/server-manager.ts`: service lifecycle and network rebinding
+- `electron/main.ts`: Electron shell and tray integration
+- `ui/`: dashboard frontend
 
-- Deezer is still only scaffolded as a future provider
-- the live status block reflects renderer state and last bridged source, but not full codec introspection from the device
-- some old renderers are picky about MIME types and metadata, so compatibility work may continue per device behavior
+## Troubleshooting
+
+### The Caruso cannot see the bridge
+
+- make sure the Mac and Caruso are on the same local network
+- reopen the network media source on the Caruso
+- wait a few seconds after switching between LAN and Wi-Fi
+
+### A station can play now but fails when saving
+
+Some stations respond differently to `HEAD`, playlist URLs, redirects, or malformed upstream servers. The bridge already includes multiple resolution fallbacks, but internet radio is messy and provider behavior changes over time.
+
+### A station shows buffering or format errors
+
+That usually means the upstream station is using a playlist wrapper, a temporary HTML redirect, an unsupported codec variant, or a flaky origin server.
+
+### Why use both TuneIn and Radio Browser?
+
+- TuneIn is useful for familiar catalog results and browse trees
+- Radio Browser is useful for alternative direct stream URLs, bitrate sorting, and compatibility hunting
+
+## Current Scope
+
+Implemented and usable today:
+
+- internet radio search
+- saved station list for the Caruso
+- local music folders
+- dashboard status and controls
+- desktop tray app
+
+Planned or still incomplete:
+
+- Deezer integration
+- deeper stream validation badges per station
+- richer metadata extraction from currently playing streams
+
+## Development
+
+Useful commands:
+
+```bash
+npm run check
+npm run build
+npm run dev
+npm run desktop
+```
+
+## License
+
+MIT
+
+Copyright (c) Johannes Grof

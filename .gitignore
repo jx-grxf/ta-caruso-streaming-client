@@ -3,3 +3,4 @@ dist
 .env
 .caruso-data
 .DS_Store
+.playwright-cli

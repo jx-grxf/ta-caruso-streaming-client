@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 export type PersistedConfig = {
@@ -60,9 +61,12 @@ export class AppStorage {
         ...DEFAULT_STATE,
         ...JSON.parse(raw)
       };
+      this.state!.libraryFolders = await ensureDefaultLibraryFolders(this.state!.libraryFolders);
+      this.state!.tuneinFavorites = normalizeFavorites(this.state!.tuneinFavorites);
     } catch (error) {
       const isMissing = (error as NodeJS.ErrnoException).code === "ENOENT";
       this.state = isMissing ? structuredClone(DEFAULT_STATE) : DEFAULT_STATE;
+      this.state.libraryFolders = await ensureDefaultLibraryFolders(this.state.libraryFolders);
 
       if (!isMissing) {
         throw error;
@@ -99,22 +103,30 @@ export class AppStorage {
 
   async addTuneInFavorite(favorite: TuneInFavorite): Promise<TuneInFavorite[]> {
     const state = await this.load();
-    const existingIndex = state.tuneinFavorites.findIndex((item) => item.id === favorite.id);
+    const normalizedFavorite = {
+      ...favorite,
+      title: favorite.title.trim(),
+      streamUrl: favorite.streamUrl.trim()
+    };
+    const existingIndex = state.tuneinFavorites.findIndex((item) =>
+      item.id === normalizedFavorite.id ||
+      normalizeTitle(item.title) === normalizeTitle(normalizedFavorite.title)
+    );
 
     if (existingIndex >= 0) {
-      state.tuneinFavorites[existingIndex] = favorite;
+      state.tuneinFavorites[existingIndex] = normalizedFavorite;
     } else {
-      state.tuneinFavorites.push(favorite);
+      state.tuneinFavorites.push(normalizedFavorite);
     }
 
-    state.tuneinFavorites.sort((left, right) => left.title.localeCompare(right.title));
+    state.tuneinFavorites = normalizeFavorites(state.tuneinFavorites);
     await this.save();
     return [...state.tuneinFavorites];
   }
 
   async removeTuneInFavorite(id: string): Promise<TuneInFavorite[]> {
     const state = await this.load();
-    state.tuneinFavorites = state.tuneinFavorites.filter((item) => item.id !== id);
+    state.tuneinFavorites = state.tuneinFavorites.filter((item) => item.id !== id && normalizeTitle(item.title) !== normalizeTitle(id));
     await this.save();
     return [...state.tuneinFavorites];
   }
@@ -148,4 +160,61 @@ export class AppStorage {
     await fs.mkdir(this.dataDir, { recursive: true });
     await fs.writeFile(this.filePath, JSON.stringify(this.state, null, 2), "utf8");
   }
+}
+
+function normalizeFavorites(items: TuneInFavorite[]): TuneInFavorite[] {
+  const deduped = new Map<string, TuneInFavorite>();
+
+  for (const item of items) {
+    const key = normalizeTitle(item.title);
+    const current = deduped.get(key);
+
+    if (!current) {
+      deduped.set(key, item);
+      continue;
+    }
+
+    const preferCurrentResolved = !current.streamUrl.includes("Tune.ashx");
+    const preferNextResolved = !item.streamUrl.includes("Tune.ashx");
+
+    if (!preferCurrentResolved && preferNextResolved) {
+      deduped.set(key, item);
+      continue;
+    }
+
+    if (item.bitrate && (!current.bitrate || item.bitrate >= current.bitrate)) {
+      deduped.set(key, { ...current, ...item });
+    }
+  }
+
+  return [...deduped.values()].sort((left, right) => left.title.localeCompare(right.title));
+}
+
+function normalizeTitle(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+async function ensureDefaultLibraryFolders(folders: string[]): Promise<string[]> {
+  if (folders.length > 0) {
+    return folders;
+  }
+
+  const candidates = [
+    path.join(os.homedir(), "Music"),
+    path.join(os.homedir(), "Music", "Music"),
+    path.join(os.homedir(), "Music", "t+a")
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const stats = await fs.stat(candidate);
+      if (stats.isDirectory()) {
+        return [candidate];
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return folders;
 }

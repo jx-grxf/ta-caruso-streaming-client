@@ -1,14 +1,16 @@
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fastifyStatic from "@fastify/static";
 import Fastify from "fastify";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { config as baseConfig } from "./config.js";
+import { config as baseConfig, resolveActivePublicBaseUrl } from "./config.js";
 import { createRangedReadStream, getMimeType, isPathAllowed, scanLocalTracks } from "./local-library.js";
 import { getDeezerCapabilities } from "./providers/deezer.js";
-import { resolvePlayableUrl, searchStations } from "./providers/tunein.js";
+import { searchRadioBrowserStations } from "./providers/radio-browser.js";
+import { browseDirectory, inspectStream, resolvePlayableUrl, searchStations } from "./providers/tunein.js";
 import { AppStorage, type PersistedConfig, type TuneInFavorite } from "./storage.js";
 import { fetchDeviceDescription } from "./upnp/device-description.js";
 import { discoverUpnpDevices } from "./upnp/discovery.js";
@@ -36,6 +38,43 @@ export type AppContext = {
   };
 };
 
+let previousCpuSnapshot = takeCpuSnapshot();
+
+function takeCpuSnapshot() {
+  const totals = os.cpus().reduce((accumulator, cpu) => {
+    const times = cpu.times;
+    const idle = accumulator.idle + times.idle;
+    const total = accumulator.total + times.user + times.nice + times.sys + times.irq + times.idle;
+    return { idle, total };
+  }, { idle: 0, total: 0 });
+
+  return {
+    idle: totals.idle,
+    total: totals.total
+  };
+}
+
+function getCpuUsagePercent(): number {
+  const current = takeCpuSnapshot();
+  const idleDelta = current.idle - previousCpuSnapshot.idle;
+  const totalDelta = current.total - previousCpuSnapshot.total;
+  previousCpuSnapshot = current;
+
+  if (totalDelta <= 0) {
+    return 0;
+  }
+
+  return Number((((totalDelta - idleDelta) / totalDelta) * 100).toFixed(1));
+}
+
+function formatBytes(value: number): string {
+  if (value < 1024 * 1024 * 1024) {
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  return `${(value / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
 function getUiRoot(): string {
   const currentDir = path.dirname(fileURLToPath(import.meta.url));
   const distRelative = path.resolve(currentDir, "../ui");
@@ -48,7 +87,7 @@ function getUiRoot(): string {
 
 function mergeConfig(runtimeConfig: PersistedConfig): PersistedConfig {
   return {
-    publicBaseUrl: runtimeConfig.publicBaseUrl || baseConfig.publicBaseUrl,
+    publicBaseUrl: resolveActivePublicBaseUrl(runtimeConfig.publicBaseUrl, baseConfig.port),
     carusoFriendlyName: runtimeConfig.carusoFriendlyName || baseConfig.carusoFriendlyName,
     deezerArl: runtimeConfig.deezerArl || baseConfig.deezerArl,
     uiLanguage: runtimeConfig.uiLanguage || "de"
@@ -114,6 +153,33 @@ function buildAudioMetadata(title: string, url: string, mimeType = "audio/mpeg")
   return `<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/"><item id="0" parentID="-1" restricted="1"><dc:title>${escapedTitle}</dc:title><upnp:class>object.item.audioItem.musicTrack</upnp:class><res protocolInfo="http-get:*:${mimeType}:*">${escapedUrl}</res></item></DIDL-Lite>`;
 }
 
+function dlnaContentFeaturesForMimeType(mimeType: string): string {
+  if (mimeType === "audio/mpeg") {
+    return "DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000";
+  }
+
+  if (mimeType === "audio/aac") {
+    return "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000";
+  }
+
+  return "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000";
+}
+
+function isSupportedStreamMimeType(mimeType: string): boolean {
+  return ["audio/mpeg", "audio/aac", "audio/flac"].includes(mimeType);
+}
+
+function applyStreamHeaders(reply: FastifyReply, mimeType: string) {
+  reply.header("content-type", mimeType);
+  reply.header("cache-control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  reply.header("pragma", "no-cache");
+  reply.header("expires", "0");
+  reply.header("transferMode.dlna.org", "Streaming");
+  reply.header("contentFeatures.dlna.org", dlnaContentFeaturesForMimeType(mimeType));
+  reply.header("accept-ranges", "none");
+  reply.header("icy-metadata", "0");
+}
+
 function resolveRequestBaseUrl(hostHeader: string | undefined, fallbackBaseUrl: string): string {
   if (!hostHeader) {
     return fallbackBaseUrl;
@@ -163,7 +229,17 @@ export async function createApp(dataDir: string) {
 
   await app.register(fastifyStatic, {
     root: getUiRoot(),
-    prefix: "/"
+    prefix: "/",
+    maxAge: 0,
+    immutable: false,
+    etag: false,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".html") || filePath.endsWith(".js") || filePath.endsWith(".css")) {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+      }
+    }
   });
 
   app.get("/health", async () => {
@@ -180,13 +256,28 @@ export async function createApp(dataDir: string) {
     const folders = await storage.getLibraryFolders();
     const tracks = await scanLocalTracks(folders, runtimeConfig.publicBaseUrl || baseConfig.publicBaseUrl);
     const favorites = await storage.getTuneInFavorites();
+    const memoryUsage = process.memoryUsage();
+    const totalMemory = os.totalmem();
+    const freeMemory = os.freemem();
 
     return {
       server: {
         running: true,
         startedAt: context.startedAt,
         publicBaseUrl: runtimeConfig.publicBaseUrl || baseConfig.publicBaseUrl,
-        dataDir
+        dataDir,
+        metrics: {
+          cpuUsagePercent: getCpuUsagePercent(),
+          processMemoryRss: formatBytes(memoryUsage.rss),
+          processHeapUsed: formatBytes(memoryUsage.heapUsed),
+          systemMemoryUsed: formatBytes(totalMemory - freeMemory),
+          systemMemoryTotal: formatBytes(totalMemory),
+          uptimeSeconds: Math.floor(process.uptime()),
+          loadAverage1m: Number(os.loadavg()[0].toFixed(2)),
+          platform: `${os.type()} ${os.release()}`,
+          hostname: os.hostname(),
+          cpuCores: os.cpus().length
+        }
       },
       upnp: {
         enabled: true,
@@ -271,8 +362,33 @@ export async function createApp(dataDir: string) {
       return { items: [] };
     }
 
+    const [tuneInItems, radioBrowserItems] = await Promise.allSettled([
+      searchStations(query),
+      searchRadioBrowserStations(query)
+    ]);
+
+    const merged = [
+      ...(tuneInItems.status === "fulfilled" ? tuneInItems.value : []),
+      ...(radioBrowserItems.status === "fulfilled" ? radioBrowserItems.value : [])
+    ];
+
+    const deduped = new Map<string, typeof merged[number]>();
+    for (const item of merged) {
+      const key = `${item.text.trim().toLowerCase()}::${item.actions?.play || ""}`;
+      if (!deduped.has(key)) {
+        deduped.set(key, item);
+      }
+    }
+
     return {
-      items: await searchStations(query)
+      items: [...deduped.values()].sort((left, right) => (right.bitrate || 0) - (left.bitrate || 0))
+    };
+  });
+
+  app.get("/api/tunein/browse", async (request) => {
+    const browseUrl = (request.query as { url?: string }).url || "https://opml.radiotime.com/Browse.ashx?render=xml";
+    return {
+      items: await browseDirectory(browseUrl)
     };
   });
 
@@ -287,14 +403,19 @@ export async function createApp(dataDir: string) {
       throw new Error("title and streamUrl are required.");
     }
 
+    const inspected = await inspectStream(body.streamUrl.trim());
+    if (!isSupportedStreamMimeType(inspected.mimeType)) {
+      throw new Error(`Unsupported stream format for Caruso: ${inspected.mimeType}`);
+    }
+
     return {
       items: await storage.addTuneInFavorite({
         id: body.id?.trim() || normalizeFavoriteId(body.title),
         title: body.title.trim(),
-        streamUrl: body.streamUrl.trim(),
+        streamUrl: inspected.resolvedUrl,
         subtitle: body.subtitle?.trim(),
         image: body.image?.trim(),
-        mimeType: body.mimeType?.trim(),
+        mimeType: inspected.mimeType || body.mimeType?.trim(),
         bitrate: body.bitrate
       })
     };
@@ -302,8 +423,9 @@ export async function createApp(dataDir: string) {
 
   app.delete("/api/tunein/favorites/:id", async (request) => {
     const id = (request.params as { id: string }).id;
+    const title = (request.query as { title?: string }).title;
     return {
-      items: await storage.removeTuneInFavorite(id)
+      items: await storage.removeTuneInFavorite(title?.trim() || id)
     };
   });
 
@@ -453,16 +575,19 @@ export async function createApp(dataDir: string) {
     }
 
     const resolved = await resolvePlayableUrl(source);
-    const upstream = await fetch(resolved);
+    const upstream = await fetch(resolved, {
+      headers: {
+        "user-agent": "CarusoBridge/0.2.0",
+        "accept": "audio/mpeg,audio/aac,audio/*,*/*;q=0.8"
+      }
+    });
 
     if (!upstream.ok || !upstream.body) {
       return reply.code(502).send({ error: `Could not open upstream stream (${upstream.status}).` });
     }
 
-    const contentType = upstream.headers.get("content-type");
-    if (contentType) {
-      reply.header("content-type", contentType);
-    }
+    const contentType = upstream.headers.get("content-type")?.split(";")[0]?.trim() || "audio/mpeg";
+    applyStreamHeaders(reply, contentType);
 
     return reply.send(upstream.body);
   }
@@ -480,13 +605,19 @@ export async function createApp(dataDir: string) {
       return reply.code(404).send({ error: "Unknown TuneIn station." });
     }
 
-    const upstream = await fetch(source);
+    const inspected = await inspectStream(source);
+    const upstream = await fetch(inspected.resolvedUrl, {
+      headers: {
+        "user-agent": "CarusoBridge/0.2.0",
+        "accept": "audio/mpeg,audio/aac,audio/*,*/*;q=0.8"
+      }
+    });
     if (!upstream.ok || !upstream.body) {
       return reply.code(502).send({ error: `Could not open upstream stream (${upstream.status}).` });
     }
 
-    reply.header("content-type", upstream.headers.get("content-type") || favorite?.mimeType || "audio/mpeg");
-    reply.header("icy-metadata", upstream.headers.get("icy-metadata") || "0");
+    const mimeType = upstream.headers.get("content-type")?.split(";")[0]?.trim() || favorite?.mimeType || inspected.mimeType || "audio/mpeg";
+    applyStreamHeaders(reply, mimeType);
     return reply.send(upstream.body);
   });
 

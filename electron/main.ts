@@ -1,12 +1,14 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeImage, shell } from "electron";
+import { config } from "../src/config.js";
 import { createServerManager } from "../src/server-manager.js";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const preloadPath = path.resolve(currentDir, "../../electron/preload.cjs");
 const dataDir = path.join(app.getPath("userData"), "data");
 const serverManager = createServerManager({ dataDir });
+const desktopUiUrl = `http://127.0.0.1:${config.port}`;
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -56,7 +58,7 @@ async function createMainWindow() {
     mainWindow = null;
   });
 
-  await mainWindow.loadURL(getServerUrl());
+  await mainWindow.loadURL(desktopUiUrl);
   return mainWindow;
 }
 
@@ -84,7 +86,7 @@ function rebuildTray() {
 
         if (mainWindow && !mainWindow.isDestroyed()) {
           if (serverManager.getState().running) {
-            await mainWindow.loadURL(getServerUrl());
+            await mainWindow.loadURL(desktopUiUrl);
           }
         }
 

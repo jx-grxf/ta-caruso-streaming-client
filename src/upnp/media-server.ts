@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import dgram from "node:dgram";
 import { XMLParser } from "fast-xml-parser";
 import type { LocalTrack } from "../local-library.js";
+import { browseDirectory } from "../providers/tunein.js";
 import type { TuneInFavorite } from "../storage.js";
 
 const DEVICE_TYPE = "urn:schemas-upnp-org:device:MediaServer:1";
@@ -224,19 +225,35 @@ export function parseSoapAction(xml: string): {
   };
 }
 
-export function buildContentDirectoryBrowseResponse(
+const TUNEIN_ROOT_CATEGORIES = [
+  { title: "Local Radio", url: "https://opml.radiotime.com/Browse.ashx?c=local&render=xml" },
+  { title: "Music", url: "https://opml.radiotime.com/Browse.ashx?c=music&render=xml" },
+  { title: "Talk", url: "https://opml.radiotime.com/Browse.ashx?c=talk&render=xml" },
+  { title: "Sports", url: "https://opml.radiotime.com/Browse.ashx?c=sports&render=xml" },
+  { title: "By Location", url: "https://opml.radiotime.com/Browse.ashx?id=r0&render=xml" },
+  { title: "By Language", url: "https://opml.radiotime.com/Browse.ashx?c=lang&render=xml" },
+  { title: "Podcasts", url: "https://opml.radiotime.com/Browse.ashx?c=podcast&render=xml" }
+];
+const MAX_TUNEIN_BROWSE_ITEMS = 60;
+
+export async function buildContentDirectoryBrowseResponse(
   args: Record<string, string>,
   context: BrowseContext
-): string {
+): Promise<string> {
   const objectId = args.ObjectID ?? "0";
   const browseFlag = args.BrowseFlag ?? "BrowseDirectChildren";
   const startingIndex = Number(args.StartingIndex ?? "0");
   const requestedCount = Number(args.RequestedCount ?? "0");
-  const tree = buildBrowseTree(context);
+  const tree = await buildBrowseTree(context, objectId).catch(() => buildFallbackBrowseTree(context));
   const node = tree.get(objectId);
 
   if (!node) {
-    throw new Error(`Unknown ObjectID ${objectId}.`);
+    return soapEnvelope("u:BrowseResponse", CONTENT_DIRECTORY_TYPE, {
+      Result: wrapDidl(""),
+      NumberReturned: "0",
+      TotalMatches: "0",
+      UpdateID: "1"
+    });
   }
 
   const entries = browseFlag === "BrowseMetadata"
@@ -434,7 +451,7 @@ export function createSsdpServer(options: {
   };
 }
 
-function buildBrowseTree(context: BrowseContext): Map<string, BrowseNode> {
+async function buildBrowseTree(context: BrowseContext, objectId: string): Promise<Map<string, BrowseNode>> {
   const tree = new Map<string, BrowseNode>();
   const addContainer = (container: BrowseContainer) => tree.set(container.id, container);
   const addItem = (item: BrowseItem) => tree.set(item.id, item);
@@ -477,8 +494,71 @@ function buildBrowseTree(context: BrowseContext): Map<string, BrowseNode> {
       title: favorite.title,
       url: new URL(`/stream/tunein-favorite/${favorite.id}`, context.baseUrl).toString(),
       mimeType: favorite.mimeType || "audio/mpeg",
-      upnpClass: "object.item.audioItem.musicTrack"
+      upnpClass: "object.item.audioItem.audioBroadcast"
     });
+  }
+
+  addContainer({
+    kind: "container",
+    id: "tunein-browse-root",
+    parentId: "tunein",
+    title: "Browse",
+    children: TUNEIN_ROOT_CATEGORIES.map((category) => createBrowseContainerId(category.url)),
+    upnpClass: "object.container.storageFolder"
+  });
+
+  for (const category of TUNEIN_ROOT_CATEGORIES) {
+    addContainer({
+      kind: "container",
+      id: createBrowseContainerId(category.url),
+      parentId: "tunein-browse-root",
+      title: category.title,
+      children: [],
+      upnpClass: "object.container.storageFolder"
+    });
+  }
+
+  if (objectId.startsWith("tunein-browse:")) {
+    const browseUrl = decodeBrowseContainerId(objectId);
+    const items = await browseDirectory(browseUrl).catch(() => []).then((entries) => entries.slice(0, MAX_TUNEIN_BROWSE_ITEMS));
+    const childIds: string[] = [];
+
+    for (const item of items) {
+      const browseTarget = item.actions?.browse || item.actions?.play;
+
+      if (item.type === "link" && browseTarget) {
+        const childId = createBrowseContainerId(browseTarget);
+        addContainer({
+          kind: "container",
+          id: childId,
+          parentId: objectId,
+          title: item.text,
+          children: [],
+          upnpClass: "object.container.storageFolder"
+        });
+        childIds.push(childId);
+        continue;
+      }
+
+      if (item.type === "audio" && item.actions?.play) {
+        const childId = createBrowseItemId(item.actions.play);
+        addItem({
+          kind: "item",
+          id: childId,
+          parentId: objectId,
+          title: item.text,
+          url: new URL("/stream/tunein.mp3", context.baseUrl).toString() + `?url=${encodeURIComponent(item.actions.play)}`,
+          mimeType: item.formats?.includes("aac") ? "audio/aac" : "audio/mpeg",
+          upnpClass: "object.item.audioItem.audioBroadcast"
+        });
+        childIds.push(childId);
+      }
+    }
+
+    const dynamicContainer = tree.get(objectId);
+    if (dynamicContainer?.kind === "container") {
+      dynamicContainer.children = childIds;
+    }
   }
 
   addContainer({
@@ -505,6 +585,74 @@ function buildBrowseTree(context: BrowseContext): Map<string, BrowseNode> {
   return tree;
 }
 
+function buildFallbackBrowseTree(context: BrowseContext): Map<string, BrowseNode> {
+  const tree = new Map<string, BrowseNode>();
+  const favoriteIds = context.favorites.map((favorite) => `tunein-favorite:${favorite.id}`);
+  const localTrackIds = context.tracks.map((track) => `local-track:${track.id}`);
+
+  tree.set("0", {
+    kind: "container",
+    id: "0",
+    parentId: "-1",
+    title: context.serverName,
+    children: ["tunein", "local-music"],
+    upnpClass: "object.container.storageFolder"
+  });
+
+  tree.set("tunein", {
+    kind: "container",
+    id: "tunein",
+    parentId: "0",
+    title: "TuneIn",
+    children: ["tunein-sender"],
+    upnpClass: "object.container.storageFolder"
+  });
+
+  tree.set("tunein-sender", {
+    kind: "container",
+    id: "tunein-sender",
+    parentId: "tunein",
+    title: "Sender",
+    children: favoriteIds,
+    upnpClass: "object.container.storageFolder"
+  });
+
+  for (const favorite of context.favorites) {
+    tree.set(`tunein-favorite:${favorite.id}`, {
+      kind: "item",
+      id: `tunein-favorite:${favorite.id}`,
+      parentId: "tunein-sender",
+      title: favorite.title,
+      url: new URL(`/stream/tunein-favorite/${favorite.id}`, context.baseUrl).toString(),
+      mimeType: favorite.mimeType || "audio/mpeg",
+      upnpClass: "object.item.audioItem.audioBroadcast"
+    });
+  }
+
+  tree.set("local-music", {
+    kind: "container",
+    id: "local-music",
+    parentId: "0",
+    title: "Lokale Musik",
+    children: localTrackIds,
+    upnpClass: "object.container.storageFolder"
+  });
+
+  for (const track of context.tracks) {
+    tree.set(`local-track:${track.id}`, {
+      kind: "item",
+      id: `local-track:${track.id}`,
+      parentId: "local-music",
+      title: track.title,
+      url: track.url,
+      mimeType: mimeFromTrack(track.extension),
+      upnpClass: "object.item.audioItem.musicTrack"
+    });
+  }
+
+  return tree;
+}
+
 function serializeNode(node: BrowseNode): string {
   if (node.kind === "container") {
     return `<container id="${escapeXml(node.id)}" parentID="${escapeXml(node.parentId)}" restricted="1" searchable="0" childCount="${node.children.length}">
@@ -513,10 +661,16 @@ function serializeNode(node: BrowseNode): string {
 </container>`;
   }
 
+  const protocolInfo = node.mimeType === "audio/mpeg"
+    ? "http-get:*:audio/mpeg:DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+    : node.mimeType === "audio/aac"
+      ? "http-get:*:audio/aac:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+      : `http-get:*:${escapeXml(node.mimeType)}:*`;
+
   return `<item id="${escapeXml(node.id)}" parentID="${escapeXml(node.parentId)}" restricted="1">
   <dc:title>${escapeXml(node.title)}</dc:title>
   <upnp:class>${escapeXml(node.upnpClass)}</upnp:class>
-  <res protocolInfo="http-get:*:${escapeXml(node.mimeType)}:*">${escapeXml(node.url)}</res>
+  <res protocolInfo="${protocolInfo}">${escapeXml(node.url)}</res>
 </item>`;
 }
 
@@ -594,4 +748,16 @@ function mimeFromTrack(extension: string): string {
     default:
       return "application/octet-stream";
   }
+}
+
+function createBrowseContainerId(url: string): string {
+  return `tunein-browse:${Buffer.from(url).toString("base64url")}`;
+}
+
+function decodeBrowseContainerId(id: string): string {
+  return Buffer.from(id.replace("tunein-browse:", ""), "base64url").toString("utf8");
+}
+
+function createBrowseItemId(url: string): string {
+  return `tunein-item:${Buffer.from(url).toString("base64url")}`;
 }

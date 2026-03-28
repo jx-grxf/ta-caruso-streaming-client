@@ -2,6 +2,7 @@
   "name": "ta-caruso-streaming-client",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "main": "dist/electron/main.js",
   "description": "Local streaming bridge for T+A Caruso devices with TuneIn and Deezer providers.",
