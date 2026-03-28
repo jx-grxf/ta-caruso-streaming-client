@@ -65,6 +65,9 @@ async function createMainWindow() {
 function rebuildTray() {
   if (!tray) {
     tray = new Tray(getTrayIcon());
+    tray.on("double-click", () => {
+      void createMainWindow();
+    });
   }
 
   const state = serverManager.getState();
@@ -112,20 +115,25 @@ function rebuildTray() {
 
   tray.setToolTip(`Caruso Bridge${state.running ? " aktiv" : " gestoppt"}`);
   tray.setContextMenu(menu);
-  tray.on("double-click", () => {
-    void createMainWindow();
-  });
 }
 
 app.on("window-all-closed", () => {
   // Keep the app alive in the menu bar/tray when all windows are closed.
 });
 
-app.whenReady().then(async () => {
-  await ensureServerRunning();
-  rebuildTray();
-  await createMainWindow();
-});
+app.whenReady()
+  .then(async () => {
+    await ensureServerRunning();
+    rebuildTray();
+    await createMainWindow();
+  })
+  .catch(async (error) => {
+    await dialog.showErrorBox(
+      "Caruso Bridge konnte nicht gestartet werden",
+      error instanceof Error ? error.message : "Unbekannter Fehler beim Start."
+    );
+    app.quit();
+  });
 
 ipcMain.handle("desktop:getServerState", async () => serverManager.getState());
 ipcMain.handle("desktop:startServer", async () => {
