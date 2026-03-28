@@ -91,8 +91,40 @@ export async function createRangedReadStream(filePath: string, rangeHeader?: str
   }
 
   const [rawStart, rawEnd] = rangeHeader.replace("bytes=", "").split("-");
-  const start = rawStart ? Number(rawStart) : 0;
-  const end = rawEnd ? Number(rawEnd) : size - 1;
+  const hasStart = rawStart !== undefined && rawStart !== "";
+  const hasEnd = rawEnd !== undefined && rawEnd !== "";
+
+  let start: number;
+  let end: number;
+
+  if (!hasStart && !hasEnd) {
+    throw new RangeError("Invalid byte range.");
+  }
+
+  if (!hasStart) {
+    const suffixLength = Number(rawEnd);
+    if (!Number.isInteger(suffixLength) || suffixLength <= 0) {
+      throw new RangeError("Invalid byte range.");
+    }
+
+    start = Math.max(size - suffixLength, 0);
+    end = size - 1;
+  } else {
+    start = Number(rawStart);
+    end = hasEnd ? Number(rawEnd) : size - 1;
+  }
+
+  if (
+    !Number.isInteger(start) ||
+    !Number.isInteger(end) ||
+    start < 0 ||
+    end < start ||
+    start >= size
+  ) {
+    throw new RangeError("Invalid byte range.");
+  }
+
+  end = Math.min(end, size - 1);
 
   return {
     stream: fs.createReadStream(filePath, { start, end }),

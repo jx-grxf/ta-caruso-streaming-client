@@ -159,6 +159,35 @@ function t(key) {
   return translations[state.language][key] || key;
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function encodeDataValue(value) {
+  return encodeURIComponent(String(value ?? ""));
+}
+
+function decodeDataValue(value) {
+  return value ? decodeURIComponent(value) : "";
+}
+
+function getErrorMessage(error, fallback) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+async function runWithToast(action, fallbackMessage) {
+  try {
+    await action();
+  } catch (error) {
+    showToast(getErrorMessage(error, fallbackMessage));
+  }
+}
+
 function showToast(message) {
   elements.toast.textContent = message;
   elements.toast.classList.remove("hidden");
@@ -203,10 +232,10 @@ function renderStatus(status, desktopState) {
   elements.serverBadge.textContent = desktopState?.running === false ? "Offline" : "Live";
   elements.publicUrlLabel.textContent = status.server.publicBaseUrl;
   elements.statusSummary.innerHTML = `
-    <dt>${t("publicUrl")}</dt><dd>${status.server.publicBaseUrl}</dd>
-    <dt>Tracks</dt><dd>${status.library.trackCount}</dd>
-    <dt>Folders</dt><dd>${status.library.folders.length}</dd>
-    <dt>Deezer</dt><dd>${status.deezer.warning}</dd>
+    <dt>${escapeHtml(t("publicUrl"))}</dt><dd>${escapeHtml(status.server.publicBaseUrl)}</dd>
+    <dt>Tracks</dt><dd>${escapeHtml(status.library.trackCount)}</dd>
+    <dt>Folders</dt><dd>${escapeHtml(status.library.folders.length)}</dd>
+    <dt>Deezer</dt><dd>${escapeHtml(status.deezer.warning)}</dd>
   `;
   elements.publicBaseUrlInput.value = status.config.publicBaseUrl || "";
   elements.carusoNameInput.value = status.config.carusoFriendlyName || "";
@@ -225,35 +254,35 @@ function renderServerMetrics(metrics) {
   elements.serverMetrics.innerHTML = `
     <div class="status-card">
       <span class="status-label">CPU</span>
-      <strong>${metrics.cpuUsagePercent}%</strong>
+      <strong>${escapeHtml(metrics.cpuUsagePercent)}%</strong>
     </div>
     <div class="status-card">
       <span class="status-label">RAM App</span>
-      <strong>${metrics.processMemoryRss}</strong>
+      <strong>${escapeHtml(metrics.processMemoryRss)}</strong>
     </div>
     <div class="status-card">
       <span class="status-label">Heap</span>
-      <strong>${metrics.processHeapUsed}</strong>
+      <strong>${escapeHtml(metrics.processHeapUsed)}</strong>
     </div>
     <div class="status-card">
       <span class="status-label">RAM System</span>
-      <strong>${metrics.systemMemoryUsed} / ${metrics.systemMemoryTotal}</strong>
+      <strong>${escapeHtml(metrics.systemMemoryUsed)} / ${escapeHtml(metrics.systemMemoryTotal)}</strong>
     </div>
     <div class="status-card">
       <span class="status-label">Uptime</span>
-      <strong>${formatDuration(metrics.uptimeSeconds)}</strong>
+      <strong>${escapeHtml(formatDuration(metrics.uptimeSeconds))}</strong>
     </div>
     <div class="status-card">
       <span class="status-label">Load 1m</span>
-      <strong>${metrics.loadAverage1m}</strong>
+      <strong>${escapeHtml(metrics.loadAverage1m)}</strong>
     </div>
     <div class="status-card">
       <span class="status-label">Host</span>
-      <strong>${metrics.hostname}</strong>
+      <strong>${escapeHtml(metrics.hostname)}</strong>
     </div>
     <div class="status-card">
       <span class="status-label">System</span>
-      <strong>${metrics.platform} · ${metrics.cpuCores} Cores</strong>
+      <strong>${escapeHtml(metrics.platform)} · ${escapeHtml(metrics.cpuCores)} Cores</strong>
     </div>
   `;
 }
@@ -288,10 +317,10 @@ function renderDevices() {
       <div class="item">
         <div class="item-row">
           <div>
-            <strong>${name}</strong>
-            <div class="meta">${device.description?.modelName || t("unknown")} · ${device.address}</div>
+            <strong>${escapeHtml(name)}</strong>
+            <div class="meta">${escapeHtml(device.description?.modelName || t("unknown"))} · ${escapeHtml(device.address)}</div>
           </div>
-          <button class="button ${selected ? "button-secondary" : "button-ghost"}" data-select-device="${device.location || ""}" data-select-name="${name}">
+          <button class="button ${selected ? "button-secondary" : "button-ghost"}" data-select-device="${encodeDataValue(device.location || "")}" data-select-name="${encodeDataValue(name)}">
             ${selected ? t("selected") : t("select")}
           </button>
         </div>
@@ -310,8 +339,8 @@ function renderTuneIn() {
     <div class="item">
       <div class="item-row">
         <div>
-          <strong>${item.text}</strong>
-          <div class="meta">${item.subtext || item.type}${item.bitrate ? ` · ${item.bitrate} kbps` : ""}${item.formats ? ` · ${item.formats.toUpperCase()}` : ""}</div>
+          <strong>${escapeHtml(item.text)}</strong>
+          <div class="meta">${escapeHtml(item.subtext || item.type)}${item.bitrate ? ` · ${escapeHtml(item.bitrate)} kbps` : ""}${item.formats ? ` · ${escapeHtml(item.formats.toUpperCase())}` : ""}</div>
           <div class="pill-row">${renderCompatibilityPills(item)}</div>
         </div>
         <div class="item-actions">
@@ -344,8 +373,8 @@ function renderRadioBrowser() {
     <div class="item">
       <div class="item-row">
         <div>
-          <strong>${item.text}</strong>
-          <div class="meta">${item.subtext || "Radio Browser"}${item.bitrate ? ` · ${item.bitrate} kbps` : ""}</div>
+          <strong>${escapeHtml(item.text)}</strong>
+          <div class="meta">${escapeHtml(item.subtext || "Radio Browser")}${item.bitrate ? ` · ${escapeHtml(item.bitrate)} kbps` : ""}</div>
           <div class="pill-row">${renderCompatibilityPills(item)}</div>
         </div>
         <div class="item-actions">
@@ -382,12 +411,12 @@ function renderTuneInBrowse() {
     <div class="item">
       <div class="item-row">
         <div>
-          <strong>${item.text}</strong>
-          <div class="meta">${item.subtext || item.type || ""}${item.bitrate ? ` · ${item.bitrate} kbps` : ""}${item.formats ? ` · ${item.formats.toUpperCase()}` : ""}</div>
+          <strong>${escapeHtml(item.text)}</strong>
+          <div class="meta">${escapeHtml(item.subtext || item.type || "")}${item.bitrate ? ` · ${escapeHtml(item.bitrate)} kbps` : ""}${item.formats ? ` · ${escapeHtml(item.formats.toUpperCase())}` : ""}</div>
           ${item.type === "audio" ? `<div class="pill-row">${renderCompatibilityPills(item)}</div>` : ""}
         </div>
         <div class="item-actions">
-          ${item.type === "link" && (item.actions?.browse || item.actions?.play) ? `<button class="button button-ghost" data-browse-link="${item.actions?.browse || item.actions?.play}" data-browse-label="${item.text}">${state.language === "en" ? "Open" : "Oeffnen"}</button>` : ""}
+          ${item.type === "link" && (item.actions?.browse || item.actions?.play) ? `<button class="button button-ghost" data-browse-link="${encodeDataValue(item.actions?.browse || item.actions?.play)}" data-browse-label="${encodeDataValue(item.text)}">${state.language === "en" ? "Open" : "Oeffnen"}</button>` : ""}
           ${item.type === "audio" && item.actions?.play ? `<button class="button button-ghost" data-play-now="${encodeURIComponent(JSON.stringify({
             title: item.text,
             streamUrl: item.actions.play
@@ -417,8 +446,8 @@ function renderFavorites() {
     <div class="item">
       <div class="item-row">
         <div>
-          <strong>${item.title}</strong>
-          <div class="meta">${item.subtitle || "TuneIn"}${item.bitrate ? ` · ${item.bitrate} kbps` : ""}${item.mimeType ? ` · ${item.mimeType}` : ""}</div>
+          <strong>${escapeHtml(item.title)}</strong>
+          <div class="meta">${escapeHtml(item.subtitle || "TuneIn")}${item.bitrate ? ` · ${escapeHtml(item.bitrate)} kbps` : ""}${item.mimeType ? ` · ${escapeHtml(item.mimeType)}` : ""}</div>
           <div class="pill-row">${renderFavoritePills(item)}</div>
         </div>
         <div class="item-actions">
@@ -426,7 +455,7 @@ function renderFavorites() {
             title: item.title,
             streamUrl: item.streamUrl
           }))}">${t("playNow")}</button>
-          <button type="button" class="button button-ghost" data-remove-favorite="${item.id}" data-remove-title="${encodeURIComponent(item.title)}">${t("remove")}</button>
+          <button type="button" class="button button-ghost" data-remove-favorite="${encodeDataValue(item.id)}" data-remove-title="${encodeDataValue(item.title)}">${t("remove")}</button>
         </div>
       </div>
     </div>
@@ -442,8 +471,8 @@ function renderFolders() {
   elements.libraryFolders.innerHTML = state.folders.map((folder) => `
     <div class="item">
       <div class="item-row">
-        <span>${folder}</span>
-        <button class="button button-ghost" data-remove-folder="${folder}">${t("remove")}</button>
+        <span>${escapeHtml(folder)}</span>
+        <button class="button button-ghost" data-remove-folder="${encodeDataValue(folder)}">${t("remove")}</button>
       </div>
     </div>
   `).join("");
@@ -459,10 +488,10 @@ function renderTracks() {
     <div class="item">
       <div class="item-row">
         <div>
-          <strong>${track.title}</strong>
-          <div class="meta">${track.relativePath}</div>
+          <strong>${escapeHtml(track.title)}</strong>
+          <div class="meta">${escapeHtml(track.relativePath)}</div>
         </div>
-        <button class="button" data-play-local="${track.id}">${t("play")}</button>
+        <button class="button" data-play-local="${encodeDataValue(track.id)}">${t("play")}</button>
       </div>
     </div>
   `).join("");
@@ -670,145 +699,170 @@ async function addFolder(folderPath) {
   showToast(t("folderAdded"));
 }
 
-elements.refreshButton.addEventListener("click", async () => {
-  await Promise.all([refreshStatus(), refreshDevices(), refreshTracks()]);
+elements.refreshButton.addEventListener("click", () => {
+  void runWithToast(async () => {
+    await Promise.all([refreshStatus(), refreshDevices(), refreshTracks()]);
+  }, "Aktualisieren fehlgeschlagen.");
 });
 
-elements.languageSelect.addEventListener("change", async () => {
-  state.language = elements.languageSelect.value === "en" ? "en" : "de";
-  applyTranslations();
-  renderDevices();
-  renderTuneIn();
-  renderRadioBrowser();
-  renderFavorites();
-  renderFolders();
-  renderTracks();
-  renderRendererStatus();
-  await api("/api/config", {
-    method: "PUT",
-    body: JSON.stringify({
-      publicBaseUrl: elements.publicBaseUrlInput.value,
-      carusoFriendlyName: elements.carusoNameInput.value,
-      deezerArl: elements.deezerArlInput.value,
-      uiLanguage: state.language
-    })
-  });
+elements.languageSelect.addEventListener("change", () => {
+  void runWithToast(async () => {
+    state.language = elements.languageSelect.value === "en" ? "en" : "de";
+    applyTranslations();
+    renderDevices();
+    renderTuneIn();
+    renderRadioBrowser();
+    renderFavorites();
+    renderFolders();
+    renderTracks();
+    renderRendererStatus();
+    await api("/api/config", {
+      method: "PUT",
+      body: JSON.stringify({
+        publicBaseUrl: elements.publicBaseUrlInput.value,
+        carusoFriendlyName: elements.carusoNameInput.value,
+        deezerArl: elements.deezerArlInput.value,
+        uiLanguage: state.language
+      })
+    });
+  }, "Sprache konnte nicht gespeichert werden.");
 });
 
-elements.startServerButton.addEventListener("click", async () => {
-  if (!window.desktopControls?.startServer) {
-    showToast(t("startDesktopOnly"));
-    return;
-  }
-  await window.desktopControls.startServer();
-  await refreshStatus();
-});
-
-elements.stopServerButton.addEventListener("click", async () => {
-  if (!window.desktopControls?.stopServer) {
-    showToast(t("stopDesktopOnly"));
-    return;
-  }
-  await window.desktopControls.stopServer();
-  await refreshStatus();
-});
-
-elements.configForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  await api("/api/config", {
-    method: "PUT",
-    body: JSON.stringify({
-      publicBaseUrl: elements.publicBaseUrlInput.value,
-      carusoFriendlyName: elements.carusoNameInput.value,
-      deezerArl: elements.deezerArlInput.value,
-      uiLanguage: state.language
-    })
-  });
-  showToast(t("configSaved"));
-  await refreshStatus();
-});
-
-elements.discoverButton.addEventListener("click", async () => {
-  await refreshDevices();
-  showToast(t("rediscovered"));
-});
-
-elements.tuneinSearchButton.addEventListener("click", async () => {
-  await runTuneInSearch();
-});
-
-elements.radioBrowserSearchButton.addEventListener("click", async () => {
-  await runRadioBrowserSearch();
-});
-
-elements.browseRootButton.addEventListener("click", async () => {
-  state.browseStack = [];
-  await browseTuneIn(null, false, null);
-});
-
-elements.browseBackButton.addEventListener("click", async () => {
-  state.browseStack.pop();
-  const previous = state.browseStack.at(-1);
-  await browseTuneIn(previous?.url || null, false, null);
-});
-
-elements.addFolderButton.addEventListener("click", async () => {
-  const folderPath = elements.folderInput.value.trim();
-  if (!folderPath) {
-    showToast(t("folderNeeded"));
-    return;
-  }
-  await addFolder(folderPath);
-});
-
-elements.chooseFolderButton.addEventListener("click", async () => {
-  if (!window.desktopControls?.chooseFolder) {
-    showToast(t("chooseDesktopOnly"));
-    return;
-  }
-  const folderPath = await window.desktopControls.chooseFolder();
-  if (folderPath) {
-    elements.folderInput.value = folderPath;
-  }
-});
-
-elements.favoriteStations.addEventListener("click", async (event) => {
-  const rawTarget = event.target;
-  const element = rawTarget instanceof HTMLElement ? rawTarget : rawTarget?.parentElement;
-  const removeButton = element?.closest("[data-remove-favorite]");
-
-  if (!(removeButton instanceof HTMLButtonElement)) {
-    return;
-  }
-
-  event.preventDefault();
-  event.stopPropagation();
-
-  const removeFavorite = removeButton.getAttribute("data-remove-favorite");
-  const removeTitle = removeButton.getAttribute("data-remove-title");
-
-  if (!removeFavorite) {
-    showToast("Entfernen fehlgeschlagen: keine Sender-ID gefunden.");
-    return;
-  }
-
-  const originalLabel = removeButton.textContent;
-
-  try {
-    removeButton.disabled = true;
-    removeButton.textContent = "...";
-    await api(`/api/tunein/favorites/${encodeURIComponent(removeFavorite)}?title=${encodeURIComponent(removeTitle ? decodeURIComponent(removeTitle) : "")}`, { method: "DELETE" });
+elements.startServerButton.addEventListener("click", () => {
+  void runWithToast(async () => {
+    if (!window.desktopControls?.startServer) {
+      showToast(t("startDesktopOnly"));
+      return;
+    }
+    await window.desktopControls.startServer();
     await refreshStatus();
-    showToast(t("favoriteRemoved"));
-  } catch (error) {
-    showToast(error instanceof Error ? error.message : "Entfernen fehlgeschlagen.");
-  } finally {
-    removeButton.disabled = false;
-    removeButton.textContent = originalLabel;
-  }
+  }, "Server konnte nicht gestartet werden.");
 });
 
-document.addEventListener("click", async (event) => {
+elements.stopServerButton.addEventListener("click", () => {
+  void runWithToast(async () => {
+    if (!window.desktopControls?.stopServer) {
+      showToast(t("stopDesktopOnly"));
+      return;
+    }
+    await window.desktopControls.stopServer();
+    await refreshStatus();
+  }, "Server konnte nicht gestoppt werden.");
+});
+
+elements.configForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  void runWithToast(async () => {
+    await api("/api/config", {
+      method: "PUT",
+      body: JSON.stringify({
+        publicBaseUrl: elements.publicBaseUrlInput.value,
+        carusoFriendlyName: elements.carusoNameInput.value,
+        deezerArl: elements.deezerArlInput.value,
+        uiLanguage: state.language
+      })
+    });
+    showToast(t("configSaved"));
+    await refreshStatus();
+  }, "Konfiguration konnte nicht gespeichert werden.");
+});
+
+elements.discoverButton.addEventListener("click", () => {
+  void runWithToast(async () => {
+    await refreshDevices();
+    showToast(t("rediscovered"));
+  }, "UPnP-Suche fehlgeschlagen.");
+});
+
+elements.tuneinSearchButton.addEventListener("click", () => {
+  void runWithToast(async () => {
+    await runTuneInSearch();
+  }, "TuneIn-Suche fehlgeschlagen.");
+});
+
+elements.radioBrowserSearchButton.addEventListener("click", () => {
+  void runWithToast(async () => {
+    await runRadioBrowserSearch();
+  }, "Radio-Browser-Suche fehlgeschlagen.");
+});
+
+elements.browseRootButton.addEventListener("click", () => {
+  void runWithToast(async () => {
+    state.browseStack = [];
+    await browseTuneIn(null, false, null);
+  }, "Browse konnte nicht geladen werden.");
+});
+
+elements.browseBackButton.addEventListener("click", () => {
+  void runWithToast(async () => {
+    state.browseStack.pop();
+    const previous = state.browseStack.at(-1);
+    await browseTuneIn(previous?.url || null, false, null);
+  }, "Vorheriger Browse-Schritt konnte nicht geladen werden.");
+});
+
+elements.addFolderButton.addEventListener("click", () => {
+  void runWithToast(async () => {
+    const folderPath = elements.folderInput.value.trim();
+    if (!folderPath) {
+      showToast(t("folderNeeded"));
+      return;
+    }
+    await addFolder(folderPath);
+  }, "Ordner konnte nicht hinzugefuegt werden.");
+});
+
+elements.chooseFolderButton.addEventListener("click", () => {
+  void runWithToast(async () => {
+    if (!window.desktopControls?.chooseFolder) {
+      showToast(t("chooseDesktopOnly"));
+      return;
+    }
+    const folderPath = await window.desktopControls.chooseFolder();
+    if (folderPath) {
+      elements.folderInput.value = folderPath;
+    }
+  }, "Ordnerauswahl fehlgeschlagen.");
+});
+
+elements.favoriteStations.addEventListener("click", (event) => {
+  void runWithToast(async () => {
+    const rawTarget = event.target;
+    const element = rawTarget instanceof HTMLElement ? rawTarget : rawTarget?.parentElement;
+    const removeButton = element?.closest("[data-remove-favorite]");
+
+    if (!(removeButton instanceof HTMLButtonElement)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const removeFavorite = decodeDataValue(removeButton.getAttribute("data-remove-favorite"));
+    const removeTitle = decodeDataValue(removeButton.getAttribute("data-remove-title"));
+
+    if (!removeFavorite) {
+      showToast("Entfernen fehlgeschlagen: keine Sender-ID gefunden.");
+      return;
+    }
+
+    const originalLabel = removeButton.textContent;
+
+    try {
+      removeButton.disabled = true;
+      removeButton.textContent = "...";
+      await api(`/api/tunein/favorites/${encodeURIComponent(removeFavorite)}?title=${encodeURIComponent(removeTitle)}`, { method: "DELETE" });
+      await refreshStatus();
+      showToast(t("favoriteRemoved"));
+    } finally {
+      removeButton.disabled = false;
+      removeButton.textContent = originalLabel;
+    }
+  }, "Entfernen fehlgeschlagen.");
+});
+
+document.addEventListener("click", (event) => {
+  void runWithToast(async () => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
     return;
@@ -818,18 +872,18 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const selectDevice = actionTarget.getAttribute("data-select-device");
+  const selectDevice = decodeDataValue(actionTarget.getAttribute("data-select-device"));
   if (selectDevice) {
     state.selectedDeviceUrl = selectDevice;
-    state.selectedDeviceName = actionTarget.getAttribute("data-select-name");
+    state.selectedDeviceName = decodeDataValue(actionTarget.getAttribute("data-select-name"));
     renderDevices();
     await refreshRendererStatus();
     return;
   }
 
-  const browseLink = actionTarget.getAttribute("data-browse-link");
+  const browseLink = decodeDataValue(actionTarget.getAttribute("data-browse-link"));
   if (browseLink) {
-    await browseTuneIn(browseLink, true, actionTarget.getAttribute("data-browse-label") || "Browse");
+    await browseTuneIn(browseLink, true, decodeDataValue(actionTarget.getAttribute("data-browse-label")) || "Browse");
     return;
   }
 
@@ -845,22 +899,27 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const playLocalId = actionTarget.getAttribute("data-play-local");
+  const playLocalId = decodeDataValue(actionTarget.getAttribute("data-play-local"));
   if (playLocalId) {
     await playLocal(playLocalId);
     return;
   }
 
-  const removeFolder = actionTarget.getAttribute("data-remove-folder");
+  const removeFolder = decodeDataValue(actionTarget.getAttribute("data-remove-folder"));
   if (removeFolder) {
     await api(`/api/library/folders?path=${encodeURIComponent(removeFolder)}`, { method: "DELETE" });
     await refreshStatus();
     await refreshTracks();
   }
+  }, "Aktion fehlgeschlagen.");
 });
 
-await Promise.all([refreshStatus(), refreshDevices(), refreshTracks(), browseTuneIn(null, false, null)]);
-renderRadioBrowser();
+await runWithToast(async () => {
+  await Promise.all([refreshStatus(), refreshDevices(), refreshTracks(), browseTuneIn(null, false, null)]);
+  renderRadioBrowser();
+}, "Initiales Laden fehlgeschlagen.");
 setInterval(() => {
-  void refreshRendererStatus();
+  void refreshRendererStatus().catch((error) => {
+    console.error("Renderer-Status konnte nicht aktualisiert werden.", error);
+  });
 }, 5000);
