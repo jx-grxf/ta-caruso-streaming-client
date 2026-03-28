@@ -289,21 +289,25 @@ async function assertKnownRendererUrl(deviceDescriptionUrl: string) {
   }
 }
 
-export async function createApp(dataDir: string) {
+export async function createApp(dataDir: string, options?: {
+  loggerEnabled?: boolean;
+}) {
   const storage = new AppStorage(dataDir);
   const serverUuid = createMediaServerUuid(dataDir);
   const initialConfig = mergeConfig(await storage.getConfig());
   const rendererSessions = new Map<string, { title: string; quality: string; sourceType: string }>();
   const app = Fastify({
-    logger: {
-      transport: {
-        target: "pino-pretty",
-        options: {
-          translateTime: "HH:MM:ss",
-          ignore: "pid,hostname"
+    logger: options?.loggerEnabled === false
+      ? false
+      : {
+          transport: {
+            target: "pino-pretty",
+            options: {
+              translateTime: "HH:MM:ss",
+              ignore: "pid,hostname"
+            }
+          }
         }
-      }
-    }
   });
 
   app.addContentTypeParser(["text/xml", "application/xml", "application/soap+xml"], { parseAs: "string" }, (_request, body, done) => {

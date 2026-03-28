@@ -4,6 +4,7 @@ import { createSsdpServer } from "./upnp/media-server.js";
 
 export type ServerManagerOptions = {
   dataDir: string;
+  loggerEnabled?: boolean;
 };
 
 export function createServerManager(options: ServerManagerOptions) {
@@ -22,7 +23,9 @@ export function createServerManager(options: ServerManagerOptions) {
         return runtime;
       }
 
-      const built = await createApp(options.dataDir);
+      const built = await createApp(options.dataDir, {
+        loggerEnabled: options.loggerEnabled
+      });
       let ssdp = await createCurrentSsdpServer(built.context.storage, built.context.upnp.serverUuid);
       let networkSignature = getNetworkSignature();
       let refreshInFlight: Promise<void> | undefined;

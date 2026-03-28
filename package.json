@@ -11,7 +11,7 @@
     "caruso",
     "upnp",
     "dlna",
-    "electron",
+    "terminal-ui",
     "tunein",
     "internet-radio"
   ],
@@ -24,6 +24,8 @@
     "url": "https://github.com/jx-grxf/ta-caruso-streaming-client.git"
   },
   "scripts": {
+    "quickstart": "npm run onboard",
+    "onboard": "WATCH_MODE=0 APP_ENTRY=src/onboard.ts node scripts/dev-runner.mjs",
     "dev": "node scripts/dev-runner.mjs",
     "dev:desktop": "npm run build && electron .",
     "build": "tsc -p tsconfig.json",
@@ -35,7 +37,11 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@clack/prompts": "^1.1.0",
     "@fastify/static": "^8.1.1",
+    "@types/blessed": "^0.1.27",
+    "blessed": "^0.1.81",
+    "chalk": "^5.6.2",
     "dotenv": "^16.4.7",
     "fast-xml-parser": "^4.5.3",
     "fastify": "^5.2.1",

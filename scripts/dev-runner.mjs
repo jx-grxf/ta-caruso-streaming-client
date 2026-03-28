@@ -53,6 +53,8 @@ const host = process.env.HOST || "0.0.0.0";
 const selectedPort = await findAvailablePort(requestedPort, host);
 const publicHost = host === "0.0.0.0" || host === "::" ? detectExternalAddress() : host;
 const publicBaseUrl = `http://${publicHost}:${selectedPort}`;
+const appEntry = process.env.APP_ENTRY || "src/index.ts";
+const watchMode = process.env.WATCH_MODE !== "0";
 
 if (selectedPort !== requestedPort) {
   console.log("");
@@ -63,7 +65,7 @@ if (selectedPort !== requestedPort) {
 
 const child = spawn(
   process.platform === "win32" ? "npx.cmd" : "npx",
-  ["tsx", "watch", "src/index.ts"],
+  watchMode ? ["tsx", "watch", appEntry] : ["tsx", appEntry],
   {
     stdio: "inherit",
     env: {
