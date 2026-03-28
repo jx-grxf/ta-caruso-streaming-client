@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Caruso Bridge</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow" data-i18n="eyebrow"></p>
+          <h1 data-i18n="heroTitle"></h1>
+          <p class="lead" data-i18n="heroLead"></p>
+        </div>
+        <div class="hero-actions">
+          <select id="languageSelect" class="select">
+            <option value="de">Deutsch</option>
+            <option value="en">English</option>
+          </select>
+          <button id="refreshButton" class="button button-secondary" data-i18n="refresh"></button>
+          <button id="openBrowserButton" class="button button-ghost" data-i18n="openBrowser"></button>
+        </div>
+      </header>
+
+      <main class="grid">
+        <section class="panel panel-wide status-hero">
+          <div class="panel-header">
+            <h2 data-i18n="nowPlaying"></h2>
+            <span id="serverBadge" class="badge">...</span>
+          </div>
+          <div class="status-grid">
+            <div class="status-card">
+              <span class="status-label" data-i18n="selectedRenderer"></span>
+              <strong id="selectedRendererLabel">-</strong>
+            </div>
+            <div class="status-card">
+              <span class="status-label" data-i18n="transport"></span>
+              <strong id="transportStateLabel">-</strong>
+            </div>
+            <div class="status-card">
+              <span class="status-label" data-i18n="currentSource"></span>
+              <strong id="currentTitleLabel">-</strong>
+            </div>
+            <div class="status-card">
+              <span class="status-label" data-i18n="quality"></span>
+              <strong id="qualityLabel">-</strong>
+            </div>
+            <div class="status-card">
+              <span class="status-label" data-i18n="position"></span>
+              <strong id="positionLabel">-</strong>
+            </div>
+            <div class="status-card">
+              <span class="status-label" data-i18n="publicUrl"></span>
+              <strong id="publicUrlLabel">-</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2 data-i18n="serverConfig"></h2>
+          </div>
+          <div id="statusSummary" class="kv"></div>
+          <div class="toolbar">
+            <button id="startServerButton" class="button" data-i18n="startServer"></button>
+            <button id="stopServerButton" class="button button-secondary" data-i18n="stopServer"></button>
+          </div>
+          <form id="configForm" class="stack top-gap">
+            <label>
+              <span data-i18n="publicUrl"></span>
+              <input id="publicBaseUrlInput" name="publicBaseUrl" placeholder="http://192.168.x.y:3847" />
+            </label>
+            <label>
+              <span data-i18n="carusoFilter"></span>
+              <input id="carusoNameInput" name="carusoFriendlyName" placeholder="Caruso" />
+            </label>
+            <label>
+              <span data-i18n="deezerArl"></span>
+              <input id="deezerArlInput" name="deezerArl" placeholder="Optional" />
+            </label>
+            <button class="button" type="submit" data-i18n="saveConfig"></button>
+          </form>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2 data-i18n="favoritesTitle"></h2>
+          </div>
+          <p class="small-copy" data-i18n="favoritesLead"></p>
+          <div id="favoriteStations" class="list"></div>
+        </section>
+
+        <section class="panel panel-wide">
+          <div class="panel-header">
+            <h2 data-i18n="rendererTitle"></h2>
+            <button id="discoverButton" class="button button-secondary" data-i18n="rediscover"></button>
+          </div>
+          <div id="deviceList" class="list"></div>
+        </section>
+
+        <section class="panel panel-wide">
+          <div class="panel-header">
+            <h2 data-i18n="tuneinTitle"></h2>
+          </div>
+          <div class="toolbar">
+            <input id="tuneinQueryInput" placeholder="NDR 2 / FFH / BBC 6" />
+            <button id="tuneinSearchButton" class="button" data-i18n="search"></button>
+          </div>
+          <div id="tuneinResults" class="list"></div>
+        </section>
+
+        <section class="panel panel-wide">
+          <div class="panel-header">
+            <h2 data-i18n="localMusicTitle"></h2>
+            <div class="toolbar-inline">
+              <button id="chooseFolderButton" class="button button-secondary" data-i18n="chooseFolder"></button>
+              <button id="addFolderButton" class="button" data-i18n="addFolder"></button>
+            </div>
+          </div>
+          <div class="toolbar">
+            <input id="folderInput" placeholder="/Pfad/zur/Musik" />
+          </div>
+          <div id="libraryFolders" class="list compact"></div>
+          <div id="localTracks" class="list"></div>
+        </section>
+      </main>
+
+      <div id="toast" class="toast hidden"></div>
+    </div>
+    <script type="module" src="/app.js"></script>
+  </body>
+  </html>
