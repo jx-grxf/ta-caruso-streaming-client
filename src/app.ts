@@ -88,6 +88,18 @@ function inferQualityLabel(input: {
   return "Unknown";
 }
 
+function normalizeUriForCompare(value?: string): string {
+  if (!value) {
+    return "";
+  }
+
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function buildAudioMetadata(title: string, url: string, mimeType = "audio/mpeg"): string {
   const escapedTitle = title
     .replaceAll("&", "&amp;")
@@ -302,9 +314,10 @@ export async function createApp(dataDir: string) {
     }
 
     const status = await getRendererStatus(deviceDescriptionUrl);
-    const matchedSession = [status.currentTrackUri, status.currentUri]
-      .map((uri) => (uri ? rendererSessions.get(uri) : undefined))
-      .find(Boolean);
+    const activeUris = [status.currentTrackUri, status.currentUri].map(normalizeUriForCompare);
+    const matchedSessionEntry = [...rendererSessions.entries()]
+      .find(([uri]) => activeUris.includes(normalizeUriForCompare(uri)));
+    const matchedSession = matchedSessionEntry?.[1];
     const favorite = (await storage.getTuneInFavorites()).find((item) =>
       status.currentUri?.includes(`/stream/tunein-favorite/${item.id}`) ||
       status.currentTrackUri?.includes(`/stream/tunein-favorite/${item.id}`) ||
