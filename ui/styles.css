@@ -82,6 +82,14 @@ strong {
   margin: 0;
 }
 
+strong,
+.meta,
+.kv dd,
+.status-card strong {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 h1 {
   max-width: 14ch;
   font-size: clamp(2.2rem, 4.2vw, 4rem);
@@ -256,6 +264,20 @@ input {
 .status-card {
   padding: 16px;
   border-radius: 18px;
+}
+
+.status-card strong {
+  display: block;
+  line-height: 1.25;
+}
+
+#publicUrlLabel,
+#selectedRendererLabel,
+#currentTitleLabel,
+#qualityLabel,
+#positionLabel {
+  display: block;
+  max-width: 100%;
 }
 
 .status-label {
