@@ -7,7 +7,7 @@
   "main": "dist/electron/main.js",
   "description": "Local streaming bridge for T+A Caruso devices with TuneIn and Deezer providers.",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node scripts/dev-runner.mjs",
     "dev:desktop": "npm run build && electron .",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/index.js",
