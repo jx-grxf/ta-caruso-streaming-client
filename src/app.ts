@@ -1,5 +1,6 @@
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -215,18 +216,36 @@ function isPrivateHostname(hostname: string): boolean {
     return true;
   }
 
-  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname)) {
+  const normalizedHostname = hostname.replace(/^\[|\]$/g, "");
+  const ipVersion = net.isIP(normalizedHostname);
+
+  if (ipVersion === 4) {
     const [a, b] = hostname.split(".").map(Number);
     return (
+      a === 0 ||
       a === 10 ||
       a === 127 ||
+      (a === 100 && b >= 64 && b <= 127) ||
       (a === 169 && b === 254) ||
       (a === 172 && b >= 16 && b <= 31) ||
       (a === 192 && b === 168)
     );
   }
 
-  return hostname.endsWith(".local");
+  if (ipVersion === 6) {
+    const compact = normalizedHostname.toLowerCase();
+    return (
+      compact === "::1" ||
+      compact.startsWith("fe8") ||
+      compact.startsWith("fe9") ||
+      compact.startsWith("fea") ||
+      compact.startsWith("feb") ||
+      compact.startsWith("fc") ||
+      compact.startsWith("fd")
+    );
+  }
+
+  return normalizedHostname.endsWith(".local");
 }
 
 function parseAndValidateUrl(rawValue: string, options?: {
@@ -259,6 +278,15 @@ function parseAndValidateUrl(rawValue: string, options?: {
   }
 
   return parsed;
+}
+
+async function assertKnownRendererUrl(deviceDescriptionUrl: string) {
+  const discoveredDevices = await discoverUpnpDevices();
+  const isKnownDevice = discoveredDevices.some((device) => device.location === deviceDescriptionUrl);
+
+  if (!isKnownDevice) {
+    throw new HttpError("Unknown or unauthorized deviceDescriptionUrl.", 400);
+  }
 }
 
 export async function createApp(dataDir: string) {
@@ -511,6 +539,7 @@ export async function createApp(dataDir: string) {
     const validatedDeviceDescriptionUrl = parseAndValidateUrl(deviceDescriptionUrl, {
       allowPrivateHosts: true
     });
+    await assertKnownRendererUrl(validatedDeviceDescriptionUrl.toString());
 
     const status = await getRendererStatus(validatedDeviceDescriptionUrl.toString());
     const activeUris = [status.currentTrackUri, status.currentUri].map(normalizeUriForCompare);
@@ -720,6 +749,8 @@ export async function createApp(dataDir: string) {
       ranged = await createRangedReadStream(track.absolutePath, request.headers.range);
     } catch (error) {
       if (error instanceof RangeError) {
+        const stat = await fs.stat(track.absolutePath);
+        reply.header("content-range", `bytes */${stat.size}`);
         return reply.code(416).send({ error: error.message });
       }
 
@@ -752,6 +783,7 @@ export async function createApp(dataDir: string) {
     const validatedDeviceDescriptionUrl = parseAndValidateUrl(body.deviceDescriptionUrl, {
       allowPrivateHosts: true
     });
+    await assertKnownRendererUrl(validatedDeviceDescriptionUrl.toString());
     const validatedStreamUrl = parseAndValidateUrl(body.streamUrl);
 
     const runtimeConfig = mergeConfig(await storage.getConfig());
@@ -786,6 +818,7 @@ export async function createApp(dataDir: string) {
     const validatedDeviceDescriptionUrl = parseAndValidateUrl(body.deviceDescriptionUrl, {
       allowPrivateHosts: true
     });
+    await assertKnownRendererUrl(validatedDeviceDescriptionUrl.toString());
 
     const runtimeConfig = mergeConfig(await storage.getConfig());
     const folders = await storage.getLibraryFolders();

@@ -624,9 +624,20 @@ function buildFallbackBrowseTree(context: BrowseContext): Map<string, BrowseNode
     id: "tunein-browse-root",
     parentId: "tunein",
     title: "Browse",
-    children: [],
+    children: TUNEIN_ROOT_CATEGORIES.map((category) => createBrowseContainerId(category.url)),
     upnpClass: "object.container.storageFolder"
   });
+
+  for (const category of TUNEIN_ROOT_CATEGORIES) {
+    tree.set(createBrowseContainerId(category.url), {
+      kind: "container",
+      id: createBrowseContainerId(category.url),
+      parentId: "tunein-browse-root",
+      title: category.title,
+      children: [],
+      upnpClass: "object.container.storageFolder"
+    });
+  }
 
   tree.set("tunein-sender", {
     kind: "container",

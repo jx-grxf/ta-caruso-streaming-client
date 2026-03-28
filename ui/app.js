@@ -827,39 +827,37 @@ elements.chooseFolderButton.addEventListener("click", () => {
 
 elements.favoriteStations.addEventListener("click", (event) => {
   void runWithToast(async () => {
-  const rawTarget = event.target;
-  const element = rawTarget instanceof HTMLElement ? rawTarget : rawTarget?.parentElement;
-  const removeButton = element?.closest("[data-remove-favorite]");
+    const rawTarget = event.target;
+    const element = rawTarget instanceof HTMLElement ? rawTarget : rawTarget?.parentElement;
+    const removeButton = element?.closest("[data-remove-favorite]");
 
-  if (!(removeButton instanceof HTMLButtonElement)) {
-    return;
-  }
+    if (!(removeButton instanceof HTMLButtonElement)) {
+      return;
+    }
 
-  event.preventDefault();
-  event.stopPropagation();
+    event.preventDefault();
+    event.stopPropagation();
 
-  const removeFavorite = decodeDataValue(removeButton.getAttribute("data-remove-favorite"));
-  const removeTitle = decodeDataValue(removeButton.getAttribute("data-remove-title"));
+    const removeFavorite = decodeDataValue(removeButton.getAttribute("data-remove-favorite"));
+    const removeTitle = decodeDataValue(removeButton.getAttribute("data-remove-title"));
 
-  if (!removeFavorite) {
-    showToast("Entfernen fehlgeschlagen: keine Sender-ID gefunden.");
-    return;
-  }
+    if (!removeFavorite) {
+      showToast("Entfernen fehlgeschlagen: keine Sender-ID gefunden.");
+      return;
+    }
 
-  const originalLabel = removeButton.textContent;
+    const originalLabel = removeButton.textContent;
 
-  try {
-    removeButton.disabled = true;
-    removeButton.textContent = "...";
-    await api(`/api/tunein/favorites/${encodeURIComponent(removeFavorite)}?title=${encodeURIComponent(removeTitle)}`, { method: "DELETE" });
-    await refreshStatus();
-    showToast(t("favoriteRemoved"));
-  } catch (error) {
-    showToast(error instanceof Error ? error.message : "Entfernen fehlgeschlagen.");
-  } finally {
-    removeButton.disabled = false;
-    removeButton.textContent = originalLabel;
-  }
+    try {
+      removeButton.disabled = true;
+      removeButton.textContent = "...";
+      await api(`/api/tunein/favorites/${encodeURIComponent(removeFavorite)}?title=${encodeURIComponent(removeTitle)}`, { method: "DELETE" });
+      await refreshStatus();
+      showToast(t("favoriteRemoved"));
+    } finally {
+      removeButton.disabled = false;
+      removeButton.textContent = originalLabel;
+    }
   }, "Entfernen fehlgeschlagen.");
 });
 
@@ -921,7 +919,7 @@ await runWithToast(async () => {
   renderRadioBrowser();
 }, "Initiales Laden fehlgeschlagen.");
 setInterval(() => {
-  void runWithToast(async () => {
-    await refreshRendererStatus();
-  }, "Renderer-Status konnte nicht aktualisiert werden.");
+  void refreshRendererStatus().catch((error) => {
+    console.error("Renderer-Status konnte nicht aktualisiert werden.", error);
+  });
 }, 5000);
