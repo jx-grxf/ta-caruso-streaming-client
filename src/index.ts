@@ -5,7 +5,15 @@ const manager = createServerManager({
   dataDir: config.dataDir
 });
 
+const supportsColor = Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;
+const isDevMode = process.env.DEV_MODE === "1";
+const appLabel = isDevMode ? "Caruso Bridge Dev" : "Caruso Bridge";
+
 function color(code: number, value: string): string {
+  if (!supportsColor) {
+    return value;
+  }
+
   return `\u001b[${code}m${value}\u001b[0m`;
 }
 
@@ -28,7 +36,7 @@ function printSection(title: string, lines: string[]) {
 }
 
 function printStarted(runtime: Awaited<ReturnType<typeof manager.start>>) {
-  printSection("Caruso Bridge Dev", [
+  printSection(appLabel, [
     `${padLabel("Status")}${color(32, "running")}`,
     `${padLabel("Local UI")}http://127.0.0.1:${config.port}`,
     `${padLabel("LAN URL")}${runtime.url}`,
@@ -36,15 +44,17 @@ function printStarted(runtime: Awaited<ReturnType<typeof manager.start>>) {
     `${padLabel("Started")}${new Date(runtime.startedAt).toLocaleString()}`
   ]);
 
-  console.log(`  ${color(90, "Tip")} Stop the desktop app first if dev mode says the port is already in use.`);
-  console.log("");
+  if (isDevMode) {
+    console.log(`  ${color(90, "Tip")} Stop the desktop app first if dev mode says the port is already in use.`);
+    console.log("");
+  }
 }
 
 function printStartupError(error: unknown) {
   const nodeError = error as NodeJS.ErrnoException;
 
   if (nodeError?.code === "EADDRINUSE") {
-    printSection("Caruso Bridge Dev", [
+    printSection(appLabel, [
       `${padLabel("Status")}${color(31, "startup failed")}`,
       `${padLabel("Reason")}Port ${config.port} is already in use on ${config.host}`,
       `${padLabel("Likely")}Desktop app or another dev server is still running`,
@@ -54,10 +64,11 @@ function printStartupError(error: unknown) {
     return;
   }
 
-  printSection("Caruso Bridge Dev", [
+  printSection(appLabel, [
     `${padLabel("Status")}${color(31, "startup failed")}`,
     `${padLabel("Reason")}${error instanceof Error ? error.message : "Unknown error"}`
   ]);
+  console.error(error);
 }
 
 try {
@@ -70,12 +81,12 @@ try {
 
 process.on("SIGINT", async () => {
   await manager.stop();
-  console.log(color(90, "Caruso Bridge Dev stopped."));
+  console.log(color(90, `${appLabel} stopped.`));
   process.exit(0);
 });
 
 process.on("SIGTERM", async () => {
   await manager.stop();
-  console.log(color(90, "Caruso Bridge Dev stopped."));
+  console.log(color(90, `${appLabel} stopped.`));
   process.exit(0);
 });

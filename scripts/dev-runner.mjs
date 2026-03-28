@@ -51,7 +51,8 @@ function detectExternalAddress() {
 const requestedPort = parsePort(process.env.PORT, 3847);
 const host = process.env.HOST || "0.0.0.0";
 const selectedPort = await findAvailablePort(requestedPort, host);
-const publicBaseUrl = `http://${detectExternalAddress()}:${selectedPort}`;
+const publicHost = host === "0.0.0.0" || host === "::" ? detectExternalAddress() : host;
+const publicBaseUrl = `http://${publicHost}:${selectedPort}`;
 
 if (selectedPort !== requestedPort) {
   console.log("");
@@ -68,7 +69,8 @@ const child = spawn(
     env: {
       ...process.env,
       PORT: String(selectedPort),
-      PUBLIC_BASE_URL: publicBaseUrl
+      PUBLIC_BASE_URL: publicBaseUrl,
+      DEV_MODE: "1"
     }
   }
 );
