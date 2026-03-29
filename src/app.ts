@@ -188,6 +188,10 @@ function isSupportedStreamMimeType(mimeType: string): boolean {
   return ["audio/mpeg", "audio/aac", "audio/flac"].includes(mimeType);
 }
 
+function isBrowseCompatibleFavoriteMimeType(mimeType: string): boolean {
+  return mimeType.toLowerCase().includes("mpeg");
+}
+
 function applyStreamHeaders(reply: FastifyReply, mimeType: string) {
   reply.header("content-type", mimeType);
   reply.header("cache-control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -516,6 +520,10 @@ export async function createApp(dataDir: string, options?: {
     const inspected = await inspectStream(body.streamUrl.trim());
     if (!isSupportedStreamMimeType(inspected.mimeType)) {
       throw new HttpError(`Unsupported stream format for Caruso: ${inspected.mimeType}`, 400);
+    }
+
+    if (!isBrowseCompatibleFavoriteMimeType(inspected.mimeType)) {
+      throw new HttpError("Only MP3 streams can be added to the browsable Caruso sender list. Use 'Jetzt spielen' for AAC streams.", 400);
     }
 
     return {
