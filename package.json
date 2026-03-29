@@ -25,7 +25,7 @@
   },
   "scripts": {
     "quickstart": "npm run onboard",
-    "onboard": "WATCH_MODE=0 APP_ENTRY=src/onboard.ts node scripts/dev-runner.mjs",
+    "onboard": "node scripts/dev-runner.mjs --watch false --entry src/onboard.ts",
     "dev": "node scripts/dev-runner.mjs",
     "dev:desktop": "npm run build && electron .",
     "build": "tsc -p tsconfig.json",

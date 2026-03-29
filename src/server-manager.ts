@@ -1,5 +1,6 @@
 import { config, detectExternalIPv4Addresses, resolveActivePublicBaseUrl } from "./config.js";
 import { createApp } from "./app.js";
+import { detectDefaultTargetPlatform, getHostDisplayName, normalizeTargetPlatform } from "./platform.js";
 import { createSsdpServer } from "./upnp/media-server.js";
 
 export type ServerManagerOptions = {
@@ -123,7 +124,8 @@ async function createCurrentSsdpServer(
   const persistedConfig = await storage.getConfig();
   const resolvedPublicBaseUrl = resolveActivePublicBaseUrl(persistedConfig.publicBaseUrl, config.port);
   const addresses = detectExternalIPv4Addresses();
-  const friendlyName = `${persistedConfig.carusoFriendlyName || config.carusoFriendlyName || "Caruso"} auf ${process.env.HOSTNAME || "MacBook"}`;
+  const targetPlatform = normalizeTargetPlatform(persistedConfig.targetPlatform || detectDefaultTargetPlatform());
+  const friendlyName = `${persistedConfig.carusoFriendlyName || config.carusoFriendlyName || "Caruso"} auf ${getHostDisplayName(targetPlatform)}`;
 
   return createSsdpServer({
     locations: addresses.length > 0

@@ -1,7 +1,7 @@
 import chalk, { Chalk } from "chalk";
 import { confirm, intro, isCancel, note, outro, select, spinner } from "@clack/prompts";
-import { spawn } from "node:child_process";
 import { config } from "./config.js";
+import { detectDefaultTargetPlatform, openExternalUrl, type TargetPlatform } from "./platform.js";
 import { createServerManager } from "./server-manager.js";
 import { AppStorage } from "./storage.js";
 import { runTerminalUi } from "./tui.js";
@@ -23,6 +23,12 @@ type Copy = {
   welcome: string;
   chooseLanguage: string;
   languageHint: string;
+  choosePlatform: string;
+  platformHint: string;
+  platformMac: string;
+  platformWindows: string;
+  platformMacHint: string;
+  platformWindowsHint: string;
   searchingTitle: string;
   searchingBody: string;
   searchDone: string;
@@ -76,6 +82,12 @@ const copy: Record<Language, Copy> = {
     welcome: "Gefuehrtes Onboarding fuer deinen Caruso-Bridge-Start.",
     chooseLanguage: "Sprache waehlen",
     languageHint: "Du kannst die Sprache spaeter im Dashboard aendern.",
+    choosePlatform: "Plattform waehlen",
+    platformHint: "Die Auswahl steuert plattformspezifische Defaults und Hinweise.",
+    platformMac: "Mac",
+    platformWindows: "Windows",
+    platformMacHint: "macOS-Optimierungen und Mac-Texte verwenden",
+    platformWindowsHint: "Windows-Optimierungen und PC-Texte verwenden",
     searchingTitle: "Caruso finden",
     searchingBody: "Bitte sicherstellen: Mac und Caruso sind im gleichen Netzwerk und der Caruso ist eingeschaltet.",
     searchDone: "Passende Geraete gefunden.",
@@ -101,6 +113,12 @@ const copy: Record<Language, Copy> = {
     welcome: "Guided onboarding for your Caruso Bridge start.",
     chooseLanguage: "Choose language",
     languageHint: "You can change the language later in the dashboard.",
+    choosePlatform: "Choose platform",
+    platformHint: "This controls platform-specific defaults and guidance.",
+    platformMac: "Mac",
+    platformWindows: "Windows",
+    platformMacHint: "Use macOS-oriented defaults and copy",
+    platformWindowsHint: "Use Windows-oriented defaults and PC copy",
     searchingTitle: "Find your Caruso",
     searchingBody: "Please make sure your Mac and Caruso are on the same network and the Caruso is powered on.",
     searchDone: "Matching devices found.",
@@ -241,10 +259,7 @@ async function ensureServerRunning() {
 }
 
 function openBrowser(url: string) {
-  spawn("open", [url], {
-    detached: true,
-    stdio: "ignore"
-  }).unref();
+  openExternalUrl(url);
 }
 
 async function readMediaSnapshot() {
@@ -280,11 +295,33 @@ async function chooseLanguage(initialLanguage: Language): Promise<Language> {
   return selected as Language;
 }
 
-async function chooseDevice(language: Language): Promise<WizardDevice | undefined> {
+async function choosePlatform(language: Language, initialPlatform: TargetPlatform): Promise<TargetPlatform> {
+  const text = copy[language];
+  const selected = guardCancel(await select({
+    message: styleAccent(text.choosePlatform),
+    options: [
+      {
+        value: "mac",
+        label: text.platformMac,
+        hint: styleMuted(text.platformMacHint)
+      },
+      {
+        value: "windows",
+        label: text.platformWindows,
+        hint: styleMuted(text.platformWindowsHint)
+      }
+    ],
+    initialValue: initialPlatform
+  }), language);
+
+  return selected as TargetPlatform;
+}
+
+async function chooseDevice(language: Language, platform: TargetPlatform): Promise<WizardDevice | undefined> {
   const text = copy[language];
 
   while (true) {
-    note(`${text.searchingBody}\n\n${styleMuted(text.deviceHint)}`, styleTitle(text.searchingTitle));
+    note(`${getSearchingBody(language, platform)}\n\n${styleMuted(text.deviceHint)}`, styleTitle(text.searchingTitle));
 
     const searchSpinner = spinner();
     searchSpinner.start(styleAccent(text.searchingTitle));
@@ -360,12 +397,24 @@ async function showMediaStep(language: Language): Promise<"continue" | "dashboar
   return next as "continue" | "dashboard";
 }
 
-async function finishSetup(language: Language, selectedDevice?: WizardDevice) {
+function formatPlatformLabel(platform: TargetPlatform): string {
+  return platform === "windows" ? "Windows" : "Mac";
+}
+
+function getSearchingBody(language: Language, platform: TargetPlatform): string {
+  if (language === "de") {
+    return `Bitte sicherstellen: ${formatPlatformLabel(platform)} und Caruso sind im gleichen Netzwerk und der Caruso ist eingeschaltet.`;
+  }
+
+  return `Please make sure your ${formatPlatformLabel(platform)} and Caruso are on the same network and the Caruso is powered on.`;
+}
+
+async function finishSetup(language: Language, platform: TargetPlatform, selectedDevice?: WizardDevice) {
   const text = copy[language];
   const lanUrl = manager.getState().url;
 
   note(
-    `${text.finishBody}\n\nLanguage: ${language === "de" ? "Deutsch" : "English"}\nCaruso: ${selectedDevice?.friendlyName || "-"}\nLocal UI: http://127.0.0.1:${config.port}\nLAN URL: ${lanUrl}`,
+    `${text.finishBody}\n\nLanguage: ${language === "de" ? "Deutsch" : "English"}\nPlatform: ${formatPlatformLabel(platform)}\nCaruso: ${selectedDevice?.friendlyName || "-"}\nLocal UI: http://127.0.0.1:${config.port}\nLAN URL: ${lanUrl}`,
     styleTitle(text.finishTitle)
   );
 
@@ -401,16 +450,22 @@ async function finishSetup(language: Language, selectedDevice?: WizardDevice) {
 
 async function main() {
   let language: Language = "en";
+  let targetPlatform = detectDefaultTargetPlatform();
 
   intro(styleTitle(copy[language].title));
   note(copy[language].welcome, styleTitle(copy[language].title));
 
   language = await chooseLanguage(language);
-  await storage.updateConfig({ uiLanguage: language });
+  targetPlatform = await choosePlatform(language, targetPlatform);
+  await storage.updateConfig({
+    uiLanguage: language,
+    targetPlatform
+  });
 
   note(styleMuted(copy[language].languageHint), styleTitle(copy[language].chooseLanguage));
+  note(styleMuted(copy[language].platformHint), styleTitle(copy[language].choosePlatform));
 
-  const selectedDevice = await chooseDevice(language);
+  const selectedDevice = await chooseDevice(language, targetPlatform);
   if (selectedDevice) {
     await storage.updateConfig({
       carusoFriendlyName: selectedDevice.friendlyName
@@ -424,7 +479,7 @@ async function main() {
     openBrowser(`http://127.0.0.1:${config.port}`);
   }
 
-  await finishSetup(language, selectedDevice);
+  await finishSetup(language, targetPlatform, selectedDevice);
 }
 
 void main().catch(async (error) => {

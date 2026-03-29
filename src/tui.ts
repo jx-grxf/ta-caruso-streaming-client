@@ -1,7 +1,7 @@
 import os from "node:os";
-import { spawn } from "node:child_process";
 import readline from "node:readline";
 import { config, detectExternalIPv4Addresses } from "./config.js";
+import { openExternalUrl } from "./platform.js";
 import { AppStorage } from "./storage.js";
 import { discoverUpnpDevices, type DiscoveredDevice } from "./upnp/discovery.js";
 
@@ -206,13 +206,6 @@ async function readSnapshot(dataDir: string): Promise<RuntimeSnapshot> {
   };
 }
 
-function openBrowser(url: string) {
-  spawn("open", [url], {
-    detached: true,
-    stdio: "ignore"
-  }).unref();
-}
-
 export async function runTerminalUi(manager: ServerManager, options: {
   dataDir: string;
   appLabel: string;
@@ -382,7 +375,7 @@ export async function runTerminalUi(manager: ServerManager, options: {
           pushLog("Bridge started for browser access.", "success");
         }
 
-        openBrowser(`http://127.0.0.1:${config.port}`);
+        openExternalUrl(`http://127.0.0.1:${config.port}`);
         pushLog("Browser opened.", "success");
       });
       return;

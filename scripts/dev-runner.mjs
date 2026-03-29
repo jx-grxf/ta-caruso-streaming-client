@@ -48,13 +48,49 @@ function detectExternalAddress() {
   return addresses.sort((left, right) => left.localeCompare(right))[0] || "127.0.0.1";
 }
 
+function parseBooleanFlag(value, fallback) {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  return !["0", "false", "no", "off"].includes(String(value).toLowerCase());
+}
+
+function parseCliArgs(argv) {
+  const parsed = {};
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const current = argv[index];
+    if (!current.startsWith("--")) {
+      continue;
+    }
+
+    const keyValue = current.slice(2).split("=");
+    const key = keyValue[0];
+    const inlineValue = keyValue[1];
+    const nextValue = inlineValue ?? argv[index + 1];
+
+    if (inlineValue === undefined && nextValue && !nextValue.startsWith("--")) {
+      parsed[key] = nextValue;
+      index += 1;
+      continue;
+    }
+
+    parsed[key] = inlineValue ?? "true";
+  }
+
+  return parsed;
+}
+
+const cliArgs = parseCliArgs(process.argv.slice(2));
+
 const requestedPort = parsePort(process.env.PORT, 3847);
 const host = process.env.HOST || "0.0.0.0";
 const selectedPort = await findAvailablePort(requestedPort, host);
 const publicHost = host === "0.0.0.0" || host === "::" ? detectExternalAddress() : host;
 const publicBaseUrl = `http://${publicHost}:${selectedPort}`;
-const appEntry = process.env.APP_ENTRY || "src/index.ts";
-const watchMode = process.env.WATCH_MODE !== "0";
+const appEntry = cliArgs.entry || process.env.APP_ENTRY || "src/index.ts";
+const watchMode = parseBooleanFlag(cliArgs.watch ?? process.env.WATCH_MODE, true);
 
 if (selectedPort !== requestedPort) {
   console.log("");

@@ -193,7 +193,7 @@ Example `.env`:
 PORT=3847
 HOST=0.0.0.0
 PUBLIC_BASE_URL=http://192.168.x.y:3847
-CARUSO_FRIENDLY_NAME=Caruso on MacBook
+CARUSO_FRIENDLY_NAME=Caruso on your computer
 DEEZER_ARL=
 DATA_DIR=/custom/path/for/app-data
 ```
@@ -225,13 +225,14 @@ When you save a station from the dashboard, the bridge resolves the actual playa
 ## Usage
 
 1. Start the app.
-2. Open the dashboard.
-3. Let the bridge discover your Caruso renderer.
-4. Search for stations with TuneIn or Radio Browser.
-5. Add working stations to the saved list.
-6. On the Caruso, open the UPnP/DLNA media source and browse the bridge.
-7. Use `TuneIn > Sender` for saved stations or `TuneIn > Browse` for category browsing.
-8. Add local music folders if you also want file-based playback.
+2. If you use `npm run onboard`, pick your language first and then choose `Mac` or `Windows` so the setup can apply platform-specific defaults.
+3. Open the dashboard.
+4. Let the bridge discover your Caruso renderer.
+5. Search for stations with TuneIn or Radio Browser.
+6. Add working stations to the saved list.
+7. On the Caruso, open the UPnP/DLNA media source and browse the bridge.
+8. Use `TuneIn > Sender` for saved stations or `TuneIn > Browse` for category browsing.
+9. Add local music folders if you also want file-based playback.
 
 ---
 
