@@ -1,9 +1,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeImage, shell, type MenuItemConstructorOptions } from "electron";
-import { autoUpdater } from "electron-updater";
+import electronUpdater from "electron-updater";
 import { config } from "../src/config.js";
 import { createServerManager } from "../src/server-manager.js";
+
+const { autoUpdater } = electronUpdater;
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const preloadPath = path.resolve(currentDir, "../../electron/preload.cjs");
