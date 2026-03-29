@@ -176,6 +176,33 @@ function buildAudioMetadata(title: string, url: string, mimeType = "audio/mpeg")
   return `<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/"><item id="0" parentID="-1" restricted="1"><dc:title>${escapedTitle}</dc:title><upnp:class>object.item.audioItem.musicTrack</upnp:class><res protocolInfo="http-get:*:${mimeType}:*">${escapedUrl}</res></item></DIDL-Lite>`;
 }
 
+function computeContentUpdateId(input: {
+  favorites: TuneInFavorite[];
+  tracks: Array<{ id: string; url: string; title: string }>;
+}): string {
+  const snapshot = JSON.stringify({
+    favorites: input.favorites.map((favorite) => ({
+      id: favorite.id,
+      title: favorite.title,
+      streamUrl: favorite.streamUrl,
+      mimeType: favorite.mimeType,
+      bitrate: favorite.bitrate
+    })),
+    tracks: input.tracks.map((track) => ({
+      id: track.id,
+      title: track.title,
+      url: track.url
+    }))
+  });
+
+  let hash = 0;
+  for (const character of snapshot) {
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  }
+
+  return String(hash || 1);
+}
+
 function dlnaContentFeaturesForMimeType(mimeType: string): string {
   if (mimeType === "audio/mpeg") {
     return "DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000";
@@ -652,6 +679,7 @@ export async function createApp(dataDir: string, options?: {
       baseUrl
     );
     const favorites = await storage.getTuneInFavorites();
+    const updateId = computeContentUpdateId({ favorites, tracks });
 
     reply.type("application/xml; charset=utf-8");
 
@@ -660,12 +688,13 @@ export async function createApp(dataDir: string, options?: {
         serverName: context.upnp.friendlyName,
         baseUrl,
         tracks,
-        favorites
+        favorites,
+        updateId
       });
     }
 
     if (actionName === "GetSystemUpdateID") {
-      return buildContentDirectorySystemUpdateIdResponse();
+      return buildContentDirectorySystemUpdateIdResponse(updateId);
     }
 
     if (actionName === "GetSearchCapabilities" || actionName === "GetSortCapabilities") {
