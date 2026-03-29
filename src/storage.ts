@@ -5,6 +5,7 @@ import path from "node:path";
 export type PersistedConfig = {
   publicBaseUrl?: string;
   carusoFriendlyName?: string;
+  rendererFilterName?: string;
   deezerArl?: string;
   uiLanguage?: "de" | "en";
   targetPlatform?: "mac" | "windows";

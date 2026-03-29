@@ -51,7 +51,6 @@ type Copy = {
   networkSaved: string;
   noNetworkFound: string;
   searchingTitle: string;
-  searchingBody: string;
   searchDone: string;
   noDevices: string;
   searchAgain: string;
@@ -103,7 +102,7 @@ const copy: Record<Language, Copy> = {
     welcome: "Gefuehrtes Onboarding fuer deinen Caruso-Bridge-Start.",
     chooseLanguage: "Sprache waehlen",
     languageHint: "Du kannst die Sprache spaeter im Dashboard aendern.",
-    checkingOs: "Checking OS...",
+    checkingOs: "Betriebssystem wird geprueft...",
     osDetectedTitle: "Betriebssystem erkannt",
     osDetectedBody: "Dein Betriebssystem wurde als {platform} erkannt.",
     continueDetectedOs: "Weiter mit {platform}",
@@ -125,7 +124,6 @@ const copy: Record<Language, Copy> = {
     networkSaved: "Netzwerk gespeichert",
     noNetworkFound: "Kein passender IPv4-Netzwerkadapter gefunden.",
     searchingTitle: "Caruso finden",
-    searchingBody: "Bitte sicherstellen: Mac und Caruso sind im gleichen Netzwerk und der Caruso ist eingeschaltet.",
     searchDone: "Passende Geraete gefunden.",
     noDevices: "Kein passendes Caruso-/T+A-Geraet gefunden.",
     searchAgain: "Erneut suchen",
@@ -171,7 +169,6 @@ const copy: Record<Language, Copy> = {
     networkSaved: "Network saved",
     noNetworkFound: "No suitable IPv4 network adapter found.",
     searchingTitle: "Find your Caruso",
-    searchingBody: "Please make sure your Mac and Caruso are on the same network and the Caruso is powered on.",
     searchDone: "Matching devices found.",
     noDevices: "No matching Caruso/T+A device found yet.",
     searchAgain: "Search again",
@@ -521,13 +518,13 @@ async function chooseDevice(language: Language, platform: TargetPlatform): Promi
     const selected = guardCancel(await select({
       message: styleAccent(text.selectDevice),
       options: devices.map((device) => ({
-        value: device.address,
+        value: device.location || `${device.friendlyName}::${device.address}`,
         label: formatDevice(device),
         hint: styleMuted(device.location || "")
       }))
     }), language);
 
-    return devices.find((device) => device.address === selected);
+    return devices.find((device) => (device.location || `${device.friendlyName}::${device.address}`) === selected);
   }
 }
 
@@ -634,7 +631,7 @@ async function main() {
   const selectedDevice = await chooseDevice(language, targetPlatform);
   if (selectedDevice) {
     await storage.updateConfig({
-      carusoFriendlyName: selectedDevice.friendlyName
+      rendererFilterName: selectedDevice.friendlyName
     });
     note(theme.success(copy[language].saved), styleTitle(copy[language].selectDevice));
   }

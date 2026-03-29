@@ -107,6 +107,7 @@ function mergeConfig(runtimeConfig: PersistedConfig): PersistedConfig {
   return {
     publicBaseUrl: resolveActivePublicBaseUrl(runtimeConfig.publicBaseUrl, baseConfig.port),
     carusoFriendlyName: runtimeConfig.carusoFriendlyName || baseConfig.carusoFriendlyName,
+    rendererFilterName: runtimeConfig.rendererFilterName || runtimeConfig.carusoFriendlyName,
     deezerArl: runtimeConfig.deezerArl || baseConfig.deezerArl,
     uiLanguage: runtimeConfig.uiLanguage || "de",
     targetPlatform
@@ -476,7 +477,7 @@ export async function createApp(dataDir: string, options?: {
     const body = request.body as PersistedConfig;
     const nextConfig = await storage.updateConfig({
       publicBaseUrl: body.publicBaseUrl?.trim() || undefined,
-      carusoFriendlyName: body.carusoFriendlyName?.trim() || undefined,
+      rendererFilterName: body.rendererFilterName?.trim() || body.carusoFriendlyName?.trim() || undefined,
       deezerArl: body.deezerArl?.trim() || undefined,
       uiLanguage: body.uiLanguage === "en" ? "en" : "de",
       targetPlatform: normalizeTargetPlatform(body.targetPlatform)
@@ -512,8 +513,8 @@ export async function createApp(dataDir: string, options?: {
         })
     );
 
-    const filtered = runtimeConfig.carusoFriendlyName
-      ? descriptions.filter((item) => item.description?.friendlyName?.includes(runtimeConfig.carusoFriendlyName!))
+    const filtered = runtimeConfig.rendererFilterName
+      ? descriptions.filter((item) => item.description?.friendlyName?.includes(runtimeConfig.rendererFilterName!))
       : descriptions;
 
     const deduped = new Map<string, typeof filtered[number]>();

@@ -1,5 +1,5 @@
 import dgram from "node:dgram";
-import os from "node:os";
+import { detectExternalIPv4Addresses } from "../config.js";
 
 export type DiscoveredDevice = {
   address: string;
@@ -11,14 +11,17 @@ export type DiscoveredDevice = {
 
 export async function discoverUpnpDevices(timeoutMs = 3000): Promise<DiscoveredDevice[]> {
   return new Promise((resolve, reject) => {
-    const interfaces = detectExternalIpv4Addresses();
+    const interfaces = detectExternalIPv4Addresses();
     const sockets = (interfaces.length > 0 ? interfaces : [undefined]).map((address) => ({
       address,
-      socket: dgram.createSocket({ type: "udp4", reuseAddr: true })
+      socket: dgram.createSocket({ type: "udp4", reuseAddr: true }),
+      bindingResolved: false
     }));
     const devices = new Map<string, DiscoveredDevice>();
     let settled = false;
-    let remainingBindings = sockets.length;
+    let pendingBindings = sockets.length;
+    let successfulBindings = 0;
+    let firstBindingError: Error | undefined;
 
     const finish = () => {
       if (settled) {
@@ -32,25 +35,38 @@ export async function discoverUpnpDevices(timeoutMs = 3000): Promise<DiscoveredD
       resolve([...devices.values()]);
     };
 
+    const maybeStartTimeout = () => {
+      if (pendingBindings !== 0 || settled) {
+        return;
+      }
+
+      if (successfulBindings === 0) {
+        settled = true;
+        for (const entry of sockets) {
+          entry.socket.close();
+        }
+        reject(firstBindingError ?? new Error("Could not bind a UDP discovery socket on any active IPv4 interface."));
+        return;
+      }
+
+      setTimeout(() => {
+        finish();
+      }, timeoutMs);
+    };
+
     for (const entry of sockets) {
       entry.socket.on("error", (error) => {
         if (settled) {
           return;
         }
 
-        if (remainingBindings > 0) {
-          remainingBindings -= 1;
-          if (remainingBindings === 0) {
-            settled = true;
-            for (const socketEntry of sockets) {
-              socketEntry.socket.close();
-            }
-            reject(error);
-          }
+        if (!entry.bindingResolved) {
+          entry.bindingResolved = true;
+          firstBindingError ??= error;
+          pendingBindings -= 1;
+          maybeStartTimeout();
           return;
         }
-
-        finish();
       });
 
       entry.socket.on("message", (message, remote) => {
@@ -71,6 +87,9 @@ export async function discoverUpnpDevices(timeoutMs = 3000): Promise<DiscoveredD
         port: 0,
         address: entry.address
       }, () => {
+        entry.bindingResolved = true;
+        pendingBindings -= 1;
+        successfulBindings += 1;
         entry.socket.setMulticastTTL(2);
         if (entry.address) {
           entry.socket.setMulticastInterface(entry.address);
@@ -95,29 +114,10 @@ export async function discoverUpnpDevices(timeoutMs = 3000): Promise<DiscoveredD
           entry.socket.send(payload, 1900, "239.255.255.250");
         }
 
-        remainingBindings -= 1;
-        if (remainingBindings === 0) {
-          setTimeout(() => {
-            finish();
-          }, timeoutMs);
-        }
+        maybeStartTimeout();
       });
     }
   });
-}
-
-function detectExternalIpv4Addresses(): string[] {
-  const addresses: string[] = [];
-
-  for (const entries of Object.values(os.networkInterfaces())) {
-    for (const entry of entries ?? []) {
-      if (entry.family === "IPv4" && !entry.internal && !entry.address.startsWith("169.254.")) {
-        addresses.push(entry.address);
-      }
-    }
-  }
-
-  return [...new Set(addresses)];
 }
 
 function parseSsdpHeaders(raw: string): Record<string, string> {

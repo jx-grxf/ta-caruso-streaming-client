@@ -39,8 +39,6 @@
   "dependencies": {
     "@clack/prompts": "^1.1.0",
     "@fastify/static": "^9.0.0",
-    "@types/blessed": "^0.1.27",
-    "blessed": "^0.1.81",
     "chalk": "^5.6.2",
     "dotenv": "^17.3.1",
     "fast-xml-parser": "^5.5.9",
