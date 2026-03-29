@@ -15,7 +15,7 @@
 
 T+A no longer offers a practical native internet-radio path for older Caruso devices. This project exists to bring that workflow back in a way that still feels usable today: local, self-hosted, and focused on the Caruso as it actually behaves on a home network.
 
-T+A Caruso Streaming Bridge turns your Mac into a local terminal app, UPnP/DLNA media source, and station management dashboard so older Caruso units can browse saved stations, TuneIn categories, and local music again.
+T+A Caruso Streaming Bridge turns your computer into a local terminal app, UPnP/DLNA media source, and station management dashboard so older Caruso units can browse saved stations, TuneIn categories, and local music again.
 
 This is an independent community project and is **not affiliated with T+A**.
 
@@ -50,7 +50,7 @@ This is an independent community project and is **not affiliated with T+A**.
 | Local music | User-selected folders are scanned and exposed as browsable local tracks |
 | Dashboard | Web UI for device discovery, status, favorites, folders, and stream actions |
 | Terminal control room | Keyboard-driven TUI with live bridge status, discovery, and quick actions |
-| Network resilience | Rebinds when your Mac switches between LAN and Wi-Fi |
+| Network resilience | Rebinds when your computer switches between LAN and Wi-Fi |
 
 ---
 
@@ -60,7 +60,7 @@ Older first-generation Caruso systems can still browse UPnP/DLNA media servers o
 
 The bridge uses that still-working local path instead of trying to revive the discontinued native service flow. In practice that means:
 
-- search stations from your Mac
+- search stations from your computer
 - save working streams locally
 - browse them again from the Caruso
 - optionally expose local music folders from the same machine
@@ -97,14 +97,14 @@ This repo is currently a **source-first project**. It is meant to be run from so
 
 ## Requirements
 
-- macOS
+- macOS or Windows
 - Node.js `20+`
 - npm
 - a first-generation T+A Caruso on the same local network
 
 Recommended:
 
-- a stable LAN or Wi-Fi connection shared by Mac and Caruso
+- a stable LAN or Wi-Fi connection shared by your computer and Caruso
 - a music folder if you want local file playback
 
 ---

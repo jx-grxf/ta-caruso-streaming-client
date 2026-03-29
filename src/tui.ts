@@ -316,15 +316,30 @@ export async function runTerminalUi(manager: ServerManager, options: {
     }
 
     process.stdin.removeAllListeners("keypress");
-    process.stdout.write("\u001b[2J\u001b[H");
+    process.removeListener("SIGINT", handleSigint);
+    process.removeListener("SIGTERM", handleSigterm);
+    if (process.stdout.isTTY) {
+      process.stdout.write("\u001b[2J\u001b[H");
+    }
     await manager.stop();
     process.exit(0);
+  };
+
+  const handleSigint = () => {
+    void cleanup();
+  };
+
+  const handleSigterm = () => {
+    void cleanup();
   };
 
   pushLog("Starting bridge...", "info");
   await manager.start();
   await refreshSnapshot();
   pushLog("Bridge is running.", "success");
+
+  process.on("SIGINT", handleSigint);
+  process.on("SIGTERM", handleSigterm);
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     console.log(`${options.appLabel} running at http://127.0.0.1:${config.port}`);
@@ -397,11 +412,4 @@ export async function runTerminalUi(manager: ServerManager, options: {
     }
   });
 
-  process.on("SIGINT", () => {
-    void cleanup();
-  });
-
-  process.on("SIGTERM", () => {
-    void cleanup();
-  });
 }

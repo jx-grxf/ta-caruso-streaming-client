@@ -238,7 +238,7 @@ function renderStatus(status, desktopState) {
     <dt>Deezer</dt><dd>${escapeHtml(status.deezer.warning)}</dd>
   `;
   elements.publicBaseUrlInput.value = status.config.publicBaseUrl || "";
-  elements.carusoNameInput.value = status.config.carusoFriendlyName || "";
+  elements.carusoNameInput.value = status.config.rendererFilterName || "";
   elements.deezerArlInput.value = status.config.deezerArl || "";
   state.language = status.config.uiLanguage || state.language;
   elements.languageSelect.value = state.language;
@@ -720,7 +720,7 @@ elements.languageSelect.addEventListener("change", () => {
       method: "PUT",
       body: JSON.stringify({
         publicBaseUrl: elements.publicBaseUrlInput.value,
-        carusoFriendlyName: elements.carusoNameInput.value,
+        rendererFilterName: elements.carusoNameInput.value,
         deezerArl: elements.deezerArlInput.value,
         uiLanguage: state.language
       })
@@ -757,7 +757,7 @@ elements.configForm.addEventListener("submit", (event) => {
       method: "PUT",
       body: JSON.stringify({
         publicBaseUrl: elements.publicBaseUrlInput.value,
-        carusoFriendlyName: elements.carusoNameInput.value,
+        rendererFilterName: elements.carusoNameInput.value,
         deezerArl: elements.deezerArlInput.value,
         uiLanguage: state.language
       })

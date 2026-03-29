@@ -1,10 +1,14 @@
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { Readable } from "node:stream";
+import type { ReadableStream as WebReadableStream } from "node:stream/web";
 import { fileURLToPath } from "node:url";
 import fastifyStatic from "@fastify/static";
+import ffmpegPath from "ffmpeg-static";
 import Fastify from "fastify";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { config as baseConfig, resolveActivePublicBaseUrl } from "./config.js";
@@ -103,6 +107,7 @@ function mergeConfig(runtimeConfig: PersistedConfig): PersistedConfig {
   return {
     publicBaseUrl: resolveActivePublicBaseUrl(runtimeConfig.publicBaseUrl, baseConfig.port),
     carusoFriendlyName: runtimeConfig.carusoFriendlyName || baseConfig.carusoFriendlyName,
+    rendererFilterName: runtimeConfig.rendererFilterName || runtimeConfig.carusoFriendlyName,
     deezerArl: runtimeConfig.deezerArl || baseConfig.deezerArl,
     uiLanguage: runtimeConfig.uiLanguage || "de",
     targetPlatform
@@ -172,6 +177,33 @@ function buildAudioMetadata(title: string, url: string, mimeType = "audio/mpeg")
   return `<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/"><item id="0" parentID="-1" restricted="1"><dc:title>${escapedTitle}</dc:title><upnp:class>object.item.audioItem.musicTrack</upnp:class><res protocolInfo="http-get:*:${mimeType}:*">${escapedUrl}</res></item></DIDL-Lite>`;
 }
 
+function computeContentUpdateId(input: {
+  favorites: TuneInFavorite[];
+  tracks: Array<{ id: string; url: string; title: string }>;
+}): string {
+  const snapshot = JSON.stringify({
+    favorites: input.favorites.map((favorite) => ({
+      id: favorite.id,
+      title: favorite.title,
+      streamUrl: favorite.streamUrl,
+      mimeType: favorite.mimeType,
+      bitrate: favorite.bitrate
+    })),
+    tracks: input.tracks.map((track) => ({
+      id: track.id,
+      title: track.title,
+      url: track.url
+    }))
+  });
+
+  let hash = 0;
+  for (const character of snapshot) {
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  }
+
+  return String(hash || 1);
+}
+
 function dlnaContentFeaturesForMimeType(mimeType: string): string {
   if (mimeType === "audio/mpeg") {
     return "DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000";
@@ -188,6 +220,10 @@ function isSupportedStreamMimeType(mimeType: string): boolean {
   return ["audio/mpeg", "audio/aac", "audio/flac"].includes(mimeType);
 }
 
+function shouldTranscodeForCaruso(mimeType: string): boolean {
+  return mimeType.toLowerCase().includes("aac");
+}
+
 function applyStreamHeaders(reply: FastifyReply, mimeType: string) {
   reply.header("content-type", mimeType);
   reply.header("cache-control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -197,6 +233,41 @@ function applyStreamHeaders(reply: FastifyReply, mimeType: string) {
   reply.header("contentFeatures.dlna.org", dlnaContentFeaturesForMimeType(mimeType));
   reply.header("accept-ranges", "none");
   reply.header("icy-metadata", "0");
+}
+
+async function sendTranscodedMp3Stream(reply: FastifyReply, upstream: Response) {
+  const resolvedFfmpegPath = ffmpegPath as unknown as string | null;
+  if (!resolvedFfmpegPath) {
+    throw new Error("ffmpeg is not available for AAC transcoding.");
+  }
+
+  const sourceStream = upstream.body ? Readable.fromWeb(upstream.body as unknown as WebReadableStream) : undefined;
+  if (!sourceStream) {
+    throw new Error("Upstream stream body is missing.");
+  }
+
+  const ffmpeg: ChildProcessWithoutNullStreams = spawn(resolvedFfmpegPath, [
+    "-loglevel", "error",
+    "-i", "pipe:0",
+    "-vn",
+    "-acodec", "libmp3lame",
+    "-b:a", "192k",
+    "-f", "mp3",
+    "pipe:1"
+  ], {
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+
+  sourceStream.on("error", () => {
+    ffmpeg.kill("SIGKILL");
+  });
+
+  ffmpeg.stdin.on("error", () => undefined);
+  ffmpeg.stderr.on("data", () => undefined);
+  sourceStream.pipe(ffmpeg.stdin);
+
+  applyStreamHeaders(reply, "audio/mpeg");
+  return reply.send(ffmpeg.stdout);
 }
 
 function resolveRequestBaseUrl(hostHeader: string | undefined, fallbackBaseUrl: string): string {
@@ -406,7 +477,7 @@ export async function createApp(dataDir: string, options?: {
     const body = request.body as PersistedConfig;
     const nextConfig = await storage.updateConfig({
       publicBaseUrl: body.publicBaseUrl?.trim() || undefined,
-      carusoFriendlyName: body.carusoFriendlyName?.trim() || undefined,
+      rendererFilterName: body.rendererFilterName?.trim() || body.carusoFriendlyName?.trim() || undefined,
       deezerArl: body.deezerArl?.trim() || undefined,
       uiLanguage: body.uiLanguage === "en" ? "en" : "de",
       targetPlatform: normalizeTargetPlatform(body.targetPlatform)
@@ -442,8 +513,8 @@ export async function createApp(dataDir: string, options?: {
         })
     );
 
-    const filtered = runtimeConfig.carusoFriendlyName
-      ? descriptions.filter((item) => item.description?.friendlyName?.includes(runtimeConfig.carusoFriendlyName!))
+    const filtered = runtimeConfig.rendererFilterName
+      ? descriptions.filter((item) => item.description?.friendlyName?.includes(runtimeConfig.rendererFilterName!))
       : descriptions;
 
     const deduped = new Map<string, typeof filtered[number]>();
@@ -609,6 +680,7 @@ export async function createApp(dataDir: string, options?: {
       baseUrl
     );
     const favorites = await storage.getTuneInFavorites();
+    const updateId = computeContentUpdateId({ favorites, tracks });
 
     reply.type("application/xml; charset=utf-8");
 
@@ -617,12 +689,13 @@ export async function createApp(dataDir: string, options?: {
         serverName: context.upnp.friendlyName,
         baseUrl,
         tracks,
-        favorites
+        favorites,
+        updateId
       });
     }
 
     if (actionName === "GetSystemUpdateID") {
-      return buildContentDirectorySystemUpdateIdResponse();
+      return buildContentDirectorySystemUpdateIdResponse(updateId);
     }
 
     if (actionName === "GetSearchCapabilities" || actionName === "GetSortCapabilities") {
@@ -702,8 +775,11 @@ export async function createApp(dataDir: string, options?: {
     }
 
     const contentType = upstream.headers.get("content-type")?.split(";")[0]?.trim() || "audio/mpeg";
-    applyStreamHeaders(reply, contentType);
+    if (shouldTranscodeForCaruso(contentType)) {
+      return sendTranscodedMp3Stream(reply, upstream);
+    }
 
+    applyStreamHeaders(reply, contentType);
     return reply.send(upstream.body);
   }
 
@@ -733,6 +809,10 @@ export async function createApp(dataDir: string, options?: {
     }
 
     const mimeType = upstream.headers.get("content-type")?.split(";")[0]?.trim() || favorite?.mimeType || inspected.mimeType || "audio/mpeg";
+    if (shouldTranscodeForCaruso(mimeType)) {
+      return sendTranscodedMp3Stream(reply, upstream);
+    }
+
     applyStreamHeaders(reply, mimeType);
     return reply.send(upstream.body);
   });

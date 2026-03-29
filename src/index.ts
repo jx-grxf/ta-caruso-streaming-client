@@ -18,8 +18,14 @@ function printStartupError(error: unknown) {
     console.log(`${appLabel} startup failed`);
     console.log(`Port ${config.port} is already in use on ${config.host}`);
     console.log("Likely another local instance is still running.");
-    console.log(`Try: lsof -iTCP:${config.port} -sTCP:LISTEN`);
-    console.log(`Or:  PORT=${config.port + 1} npm run dev`);
+    console.log("To find what's using the port:");
+    console.log(`  Unix/macOS:           lsof -iTCP:${config.port} -sTCP:LISTEN`);
+    console.log(`  Windows (cmd):        netstat -ano | findstr :${config.port}`);
+    console.log(`  Windows (PowerShell): Get-NetTCPConnection -LocalPort ${config.port}`);
+    console.log("To try a different port and restart:");
+    console.log(`  Unix/macOS:           PORT=${config.port + 1} npm run dev`);
+    console.log(`  Windows (cmd):        set PORT=${config.port + 1} && npm run dev`);
+    console.log(`  Windows (PowerShell): $env:PORT=${config.port + 1}; npm run dev`);
     return;
   }
 

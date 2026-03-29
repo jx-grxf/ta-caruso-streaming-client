@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import dgram from "node:dgram";
+import os from "node:os";
 import { XMLParser } from "fast-xml-parser";
 import type { LocalTrack } from "../local-library.js";
 import { browseDirectory } from "../providers/tunein.js";
@@ -9,11 +10,25 @@ const DEVICE_TYPE = "urn:schemas-upnp-org:device:MediaServer:1";
 const CONTENT_DIRECTORY_TYPE = "urn:schemas-upnp-org:service:ContentDirectory:1";
 const CONNECTION_MANAGER_TYPE = "urn:schemas-upnp-org:service:ConnectionManager:1";
 
+function getSsdpServerHeader(): string {
+  const systemName = process.platform === "win32"
+    ? "Windows"
+    : process.platform === "darwin"
+      ? "macOS"
+      : os.type();
+  const systemVersion = process.platform === "win32"
+    ? os.release().split(".").slice(0, 2).join(".")
+    : os.release();
+
+  return `${systemName}/${systemVersion} UPnP/1.0 CarusoBridge/0.2.0 DLNADOC/1.50`;
+}
+
 export type BrowseContext = {
   serverName: string;
   baseUrl: string;
   tracks: LocalTrack[];
   favorites: TuneInFavorite[];
+  updateId?: string;
 };
 
 type BrowseContainer = {
@@ -249,6 +264,7 @@ export async function buildContentDirectoryBrowseResponse(
   args: Record<string, string>,
   context: BrowseContext
 ): Promise<string> {
+  const updateId = context.updateId || "1";
   const objectId = args.ObjectID ?? "0";
   const browseFlag = args.BrowseFlag ?? "BrowseDirectChildren";
   const startingIndex = Number(args.StartingIndex ?? "0");
@@ -261,7 +277,7 @@ export async function buildContentDirectoryBrowseResponse(
       Result: wrapDidl(""),
       NumberReturned: "0",
       TotalMatches: "0",
-      UpdateID: "1"
+      UpdateID: updateId
     });
   }
 
@@ -271,9 +287,14 @@ export async function buildContentDirectoryBrowseResponse(
       ? node.children.map((childId) => tree.get(childId)).filter(Boolean) as BrowseNode[]
       : [];
 
-  const paged = requestedCount > 0
-    ? entries.slice(startingIndex, startingIndex + requestedCount)
-    : entries.slice(startingIndex);
+  const shouldIgnorePagination =
+    browseFlag !== "BrowseMetadata" &&
+    (objectId === "0" || objectId === "tunein" || objectId === "tunein-sender" || objectId === "tunein-browse-root");
+  const paged = shouldIgnorePagination
+    ? entries
+    : requestedCount > 0
+      ? entries.slice(startingIndex, startingIndex + requestedCount)
+      : entries.slice(startingIndex);
 
   const didl = wrapDidl(paged.map((entry) => serializeNode(entry)).join(""));
 
@@ -281,13 +302,13 @@ export async function buildContentDirectoryBrowseResponse(
     Result: didl,
     NumberReturned: String(paged.length),
     TotalMatches: String(entries.length),
-    UpdateID: "1"
+    UpdateID: updateId
   });
 }
 
-export function buildContentDirectorySystemUpdateIdResponse(): string {
+export function buildContentDirectorySystemUpdateIdResponse(updateId = "1"): string {
   return soapEnvelope("u:GetSystemUpdateIDResponse", CONTENT_DIRECTORY_TYPE, {
-    Id: "1"
+    Id: updateId
   });
 }
 
@@ -344,6 +365,7 @@ export function createSsdpServer(options: {
   serverUuid: string;
   friendlyName: string;
 }) {
+  const serverHeader = getSsdpServerHeader();
   const sockets = options.locations.map((locationConfig) => ({
     address: locationConfig.address,
     baseUrl: locationConfig.baseUrl,
@@ -370,7 +392,7 @@ export function createSsdpServer(options: {
       "CACHE-CONTROL: max-age=1800",
       "EXT:",
       `LOCATION: ${location}`,
-      "SERVER: macOS/13.0 UPnP/1.0 CarusoBridge/0.2.0 DLNADOC/1.50",
+      `SERVER: ${serverHeader}`,
       `ST: ${st}`,
       `USN: ${usn}`,
       "",
@@ -395,7 +417,7 @@ export function createSsdpServer(options: {
         `LOCATION: ${location}`,
         `NT: ${nt}`,
         `NTS: ${nts}`,
-        "SERVER: macOS/13.0 UPnP/1.0 CarusoBridge/0.2.0 DLNADOC/1.50",
+        `SERVER: ${serverHeader}`,
         "OPT: \"http://schemas.upnp.org/upnp/1/0/\"; ns=01",
         "01-NLS: 9d6e2b72-36b3-4c86-b9dd-5b01feadf4b0",
         `USN: ${usn}`,
@@ -692,11 +714,12 @@ function serializeNode(node: BrowseNode): string {
 </container>`;
   }
 
-  const protocolInfo = node.mimeType === "audio/mpeg"
+  const effectiveMimeType = node.mimeType === "audio/aac" ? "audio/mpeg" : node.mimeType;
+  const protocolInfo = effectiveMimeType === "audio/mpeg"
     ? "http-get:*:audio/mpeg:DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
-    : node.mimeType === "audio/aac"
+    : effectiveMimeType === "audio/aac"
       ? "http-get:*:audio/aac:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
-      : `http-get:*:${escapeXml(node.mimeType)}:*`;
+      : `http-get:*:${escapeXml(effectiveMimeType)}:*`;
 
   return `<item id="${escapeXml(node.id)}" parentID="${escapeXml(node.parentId)}" restricted="1">
   <dc:title>${escapeXml(node.title)}</dc:title>
