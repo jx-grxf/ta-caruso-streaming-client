@@ -6,7 +6,7 @@
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white)
-![Electron](https://img.shields.io/badge/Electron-37-47848F?logo=electron&logoColor=white)
+![Terminal UI](https://img.shields.io/badge/Terminal%20UI-first-111827)
 ![Fastify](https://img.shields.io/badge/Fastify-5-000000?logo=fastify&logoColor=white)
 ![CI](https://img.shields.io/github/actions/workflow/status/jx-grxf/ta-caruso-streaming-client/ci.yml?branch=main&label=CI)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -15,7 +15,7 @@
 
 T+A no longer offers a practical native internet-radio path for older Caruso devices. This project exists to bring that workflow back in a way that still feels usable today: local, self-hosted, and focused on the Caruso as it actually behaves on a home network.
 
-T+A Caruso Streaming Bridge turns your Mac into a local desktop app, UPnP/DLNA media source, and station management dashboard so older Caruso units can browse saved stations, TuneIn categories, and local music again.
+T+A Caruso Streaming Bridge turns your Mac into a local terminal app, UPnP/DLNA media source, and station management dashboard so older Caruso units can browse saved stations, TuneIn categories, and local music again.
 
 This is an independent community project and is **not affiliated with T+A**.
 
@@ -49,7 +49,7 @@ This is an independent community project and is **not affiliated with T+A**.
 | Browse mode | TuneIn root categories are exposed again through the bridge |
 | Local music | User-selected folders are scanned and exposed as browsable local tracks |
 | Dashboard | Web UI for device discovery, status, favorites, folders, and stream actions |
-| Desktop app | Electron shell with tray controls for quick open/start/stop actions |
+| Terminal control room | Keyboard-driven TUI with live bridge status, discovery, and quick actions |
 | Network resilience | Rebinds when your Mac switches between LAN and Wi-Fi |
 
 ---
@@ -88,7 +88,7 @@ This repo is currently a **source-first project**. It is meant to be run from so
 |---|---|
 | App runtime | Node.js, TypeScript |
 | Server | Fastify |
-| Desktop shell | Electron |
+| Primary shell | Terminal UI |
 | UI | Vanilla HTML, CSS, JavaScript |
 | Network / device control | UPnP, DLNA, SSDP, SOAP |
 | Persistence | Local JSON settings in `.caruso-data` or app data |
@@ -119,7 +119,7 @@ Implemented and usable now:
 - TuneIn browse categories via UPnP
 - local music folders
 - renderer discovery and basic playback actions
-- dashboard plus tray app
+- dashboard plus terminal control room
 
 Still rough or incomplete:
 
@@ -131,23 +131,55 @@ Still rough or incomplete:
 
 ## Quick Start
 
+### First run
+
+```bash
+git clone https://github.com/jx-grxf/ta-caruso-streaming-client.git
+cd ta-caruso-streaming-client
+npm install
+npm run onboard
+```
+
+This opens the guided setup wizard immediately:
+
+- first screen: choose `Deutsch` or `English`
+- then the wizard searches for your Caruso
+- after setup you can open the dashboard or continue into the TUI
+
+### Direct terminal control room
+
+```bash
+npm run dev
+```
+
+This opens the control-room TUI directly:
+
+- `d` searches for Caruso / UPnP devices
+- `b` opens the browser dashboard
+- `s` starts or stops the bridge
+- `q` quits cleanly
+
 ### Run from source
 
 ```bash
 git clone https://github.com/jx-grxf/ta-caruso-streaming-client.git
 cd ta-caruso-streaming-client
 npm install
-cp .env.example .env
-npm run desktop
+npm run quickstart
 ```
+
+The default quickstart now goes through onboarding:
+
+- `npm run quickstart`
+- `npm run onboard`
 
 ### Server-only dev mode
 
 ```bash
-npm run dev
+npm run start
 ```
 
-Dev mode uses the configured `PORT`. If that port is already busy, change it in your environment before starting the server.
+Dev mode still auto-selects the next free port if your preferred port is busy.
 
 ---
 
@@ -161,7 +193,7 @@ Example `.env`:
 PORT=3847
 HOST=0.0.0.0
 PUBLIC_BASE_URL=http://192.168.x.y:3847
-CARUSO_FRIENDLY_NAME=Caruso on MacBook
+CARUSO_FRIENDLY_NAME=Caruso on your computer
 DEEZER_ARL=
 DATA_DIR=/custom/path/for/app-data
 ```
@@ -169,7 +201,7 @@ DATA_DIR=/custom/path/for/app-data
 ### Important notes
 
 - `PUBLIC_BASE_URL` must be reachable by the Caruso on your LAN
-- the desktop UI itself is loaded locally via `127.0.0.1`
+- the browser dashboard itself is loaded locally via `127.0.0.1`
 - switching from LAN to Wi-Fi is supported, but the device may need a short rediscovery window
 - this repo is **not** published as an npm package; `"private": true` in `package.json` is intentional to prevent accidental publish
 
@@ -193,13 +225,14 @@ When you save a station from the dashboard, the bridge resolves the actual playa
 ## Usage
 
 1. Start the app.
-2. Open the dashboard.
-3. Let the bridge discover your Caruso renderer.
-4. Search for stations with TuneIn or Radio Browser.
-5. Add working stations to the saved list.
-6. On the Caruso, open the UPnP/DLNA media source and browse the bridge.
-7. Use `TuneIn > Sender` for saved stations or `TuneIn > Browse` for category browsing.
-8. Add local music folders if you also want file-based playback.
+2. If you use `npm run onboard`, pick your language first and then choose `Mac` or `Windows` so the setup can apply platform-specific defaults.
+3. Open the dashboard.
+4. Let the bridge discover your Caruso renderer.
+5. Search for stations with TuneIn or Radio Browser.
+6. Add working stations to the saved list.
+7. On the Caruso, open the UPnP/DLNA media source and browse the bridge.
+8. Use `TuneIn > Sender` for saved stations or `TuneIn > Browse` for category browsing.
+9. Add local music folders if you also want file-based playback.
 
 ---
 

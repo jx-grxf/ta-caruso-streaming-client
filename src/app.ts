@@ -12,6 +12,7 @@ import { createRangedReadStream, getMimeType, isPathAllowed, scanLocalTracks } f
 import { getDeezerCapabilities } from "./providers/deezer.js";
 import { searchRadioBrowserStations } from "./providers/radio-browser.js";
 import { browseDirectory, inspectStream, resolvePlayableUrl, searchStations } from "./providers/tunein.js";
+import { detectDefaultTargetPlatform, getHostDisplayName, normalizeTargetPlatform } from "./platform.js";
 import { AppStorage, type PersistedConfig, type TuneInFavorite } from "./storage.js";
 import { fetchDeviceDescription } from "./upnp/device-description.js";
 import { discoverUpnpDevices } from "./upnp/discovery.js";
@@ -97,16 +98,19 @@ function getUiRoot(): string {
 }
 
 function mergeConfig(runtimeConfig: PersistedConfig): PersistedConfig {
+  const targetPlatform = normalizeTargetPlatform(runtimeConfig.targetPlatform || detectDefaultTargetPlatform());
+
   return {
     publicBaseUrl: resolveActivePublicBaseUrl(runtimeConfig.publicBaseUrl, baseConfig.port),
     carusoFriendlyName: runtimeConfig.carusoFriendlyName || baseConfig.carusoFriendlyName,
     deezerArl: runtimeConfig.deezerArl || baseConfig.deezerArl,
-    uiLanguage: runtimeConfig.uiLanguage || "de"
+    uiLanguage: runtimeConfig.uiLanguage || "de",
+    targetPlatform
   };
 }
 
-function buildServerFriendlyName(configuredName?: string): string {
-  return `${configuredName || "Caruso"} auf ${process.env.HOSTNAME || "MacBook"}`;
+function buildServerFriendlyName(configuredName?: string, targetPlatform = detectDefaultTargetPlatform()): string {
+  return `${configuredName || "Caruso"} auf ${getHostDisplayName(targetPlatform)}`;
 }
 
 function normalizeFavoriteId(value: string): string {
@@ -289,21 +293,25 @@ async function assertKnownRendererUrl(deviceDescriptionUrl: string) {
   }
 }
 
-export async function createApp(dataDir: string) {
+export async function createApp(dataDir: string, options?: {
+  loggerEnabled?: boolean;
+}) {
   const storage = new AppStorage(dataDir);
   const serverUuid = createMediaServerUuid(dataDir);
   const initialConfig = mergeConfig(await storage.getConfig());
   const rendererSessions = new Map<string, { title: string; quality: string; sourceType: string }>();
   const app = Fastify({
-    logger: {
-      transport: {
-        target: "pino-pretty",
-        options: {
-          translateTime: "HH:MM:ss",
-          ignore: "pid,hostname"
+    logger: options?.loggerEnabled === false
+      ? false
+      : {
+          transport: {
+            target: "pino-pretty",
+            options: {
+              translateTime: "HH:MM:ss",
+              ignore: "pid,hostname"
+            }
+          }
         }
-      }
-    }
   });
 
   app.addContentTypeParser(["text/xml", "application/xml", "application/soap+xml"], { parseAs: "string" }, (_request, body, done) => {
@@ -316,7 +324,7 @@ export async function createApp(dataDir: string) {
     storage,
     upnp: {
       serverUuid,
-      friendlyName: buildServerFriendlyName(initialConfig.carusoFriendlyName)
+      friendlyName: buildServerFriendlyName(initialConfig.carusoFriendlyName, initialConfig.targetPlatform)
     }
   };
 
@@ -400,11 +408,12 @@ export async function createApp(dataDir: string) {
       publicBaseUrl: body.publicBaseUrl?.trim() || undefined,
       carusoFriendlyName: body.carusoFriendlyName?.trim() || undefined,
       deezerArl: body.deezerArl?.trim() || undefined,
-      uiLanguage: body.uiLanguage === "en" ? "en" : "de"
+      uiLanguage: body.uiLanguage === "en" ? "en" : "de",
+      targetPlatform: normalizeTargetPlatform(body.targetPlatform)
     });
 
     const mergedConfig = mergeConfig(nextConfig);
-    context.upnp.friendlyName = buildServerFriendlyName(mergedConfig.carusoFriendlyName);
+    context.upnp.friendlyName = buildServerFriendlyName(mergedConfig.carusoFriendlyName, mergedConfig.targetPlatform);
 
     return mergedConfig;
   });

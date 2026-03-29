@@ -1,9 +1,11 @@
 import { config, detectExternalIPv4Addresses, resolveActivePublicBaseUrl } from "./config.js";
 import { createApp } from "./app.js";
+import { detectDefaultTargetPlatform, getHostDisplayName, normalizeTargetPlatform } from "./platform.js";
 import { createSsdpServer } from "./upnp/media-server.js";
 
 export type ServerManagerOptions = {
   dataDir: string;
+  loggerEnabled?: boolean;
 };
 
 export function createServerManager(options: ServerManagerOptions) {
@@ -22,7 +24,9 @@ export function createServerManager(options: ServerManagerOptions) {
         return runtime;
       }
 
-      const built = await createApp(options.dataDir);
+      const built = await createApp(options.dataDir, {
+        loggerEnabled: options.loggerEnabled
+      });
       let ssdp = await createCurrentSsdpServer(built.context.storage, built.context.upnp.serverUuid);
       let networkSignature = getNetworkSignature();
       let refreshInFlight: Promise<void> | undefined;
@@ -120,7 +124,8 @@ async function createCurrentSsdpServer(
   const persistedConfig = await storage.getConfig();
   const resolvedPublicBaseUrl = resolveActivePublicBaseUrl(persistedConfig.publicBaseUrl, config.port);
   const addresses = detectExternalIPv4Addresses();
-  const friendlyName = `${persistedConfig.carusoFriendlyName || config.carusoFriendlyName || "Caruso"} auf ${process.env.HOSTNAME || "MacBook"}`;
+  const targetPlatform = normalizeTargetPlatform(persistedConfig.targetPlatform || detectDefaultTargetPlatform());
+  const friendlyName = `${persistedConfig.carusoFriendlyName || config.carusoFriendlyName || "Caruso"} auf ${getHostDisplayName(targetPlatform)}`;
 
   return createSsdpServer({
     locations: addresses.length > 0

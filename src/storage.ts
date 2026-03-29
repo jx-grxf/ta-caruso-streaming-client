@@ -7,6 +7,7 @@ export type PersistedConfig = {
   carusoFriendlyName?: string;
   deezerArl?: string;
   uiLanguage?: "de" | "en";
+  targetPlatform?: "mac" | "windows";
 };
 
 export type TuneInFavorite = {

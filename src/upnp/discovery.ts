@@ -1,4 +1,5 @@
 import dgram from "node:dgram";
+import os from "node:os";
 
 export type DiscoveredDevice = {
   address: string;
@@ -10,47 +11,113 @@ export type DiscoveredDevice = {
 
 export async function discoverUpnpDevices(timeoutMs = 3000): Promise<DiscoveredDevice[]> {
   return new Promise((resolve, reject) => {
-    const socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
+    const interfaces = detectExternalIpv4Addresses();
+    const sockets = (interfaces.length > 0 ? interfaces : [undefined]).map((address) => ({
+      address,
+      socket: dgram.createSocket({ type: "udp4", reuseAddr: true })
+    }));
     const devices = new Map<string, DiscoveredDevice>();
+    let settled = false;
+    let remainingBindings = sockets.length;
 
-    socket.on("error", (error) => {
-      socket.close();
-      reject(error);
-    });
+    const finish = () => {
+      if (settled) {
+        return;
+      }
 
-    socket.on("message", (message, remote) => {
-      const raw = message.toString("utf8");
-      const headers = parseSsdpHeaders(raw);
-      const key = headers.usn ?? `${remote.address}-${headers.location ?? "unknown"}`;
+      settled = true;
+      for (const entry of sockets) {
+        entry.socket.close();
+      }
+      resolve([...devices.values()]);
+    };
 
-      devices.set(key, {
-        address: remote.address,
-        usn: headers.usn,
-        st: headers.st,
-        location: headers.location,
-        server: headers.server
+    for (const entry of sockets) {
+      entry.socket.on("error", (error) => {
+        if (settled) {
+          return;
+        }
+
+        if (remainingBindings > 0) {
+          remainingBindings -= 1;
+          if (remainingBindings === 0) {
+            settled = true;
+            for (const socketEntry of sockets) {
+              socketEntry.socket.close();
+            }
+            reject(error);
+          }
+          return;
+        }
+
+        finish();
       });
-    });
 
-    socket.bind(0, () => {
-      const payload = [
-        "M-SEARCH * HTTP/1.1",
-        "HOST: 239.255.255.250:1900",
-        'MAN: "ssdp:discover"',
-        "MX: 1",
-        "ST: ssdp:all",
-        "",
-        ""
-      ].join("\r\n");
+      entry.socket.on("message", (message, remote) => {
+        const raw = message.toString("utf8");
+        const headers = parseSsdpHeaders(raw);
+        const key = headers.usn ?? headers.location ?? `${remote.address}-${headers.st ?? "unknown"}`;
 
-      socket.send(payload, 1900, "239.255.255.250");
+        devices.set(key, {
+          address: remote.address,
+          usn: headers.usn,
+          st: headers.st,
+          location: headers.location,
+          server: headers.server
+        });
+      });
 
-      setTimeout(() => {
-        socket.close();
-        resolve([...devices.values()]);
-      }, timeoutMs);
-    });
+      entry.socket.bind({
+        port: 0,
+        address: entry.address
+      }, () => {
+        entry.socket.setMulticastTTL(2);
+        if (entry.address) {
+          entry.socket.setMulticastInterface(entry.address);
+        }
+
+        for (const searchTarget of [
+          "ssdp:all",
+          "upnp:rootdevice",
+          "urn:schemas-upnp-org:device:MediaRenderer:1",
+          "urn:schemas-upnp-org:service:AVTransport:1"
+        ]) {
+          const payload = [
+            "M-SEARCH * HTTP/1.1",
+            "HOST: 239.255.255.250:1900",
+            'MAN: "ssdp:discover"',
+            "MX: 1",
+            `ST: ${searchTarget}`,
+            "",
+            ""
+          ].join("\r\n");
+
+          entry.socket.send(payload, 1900, "239.255.255.250");
+        }
+
+        remainingBindings -= 1;
+        if (remainingBindings === 0) {
+          setTimeout(() => {
+            finish();
+          }, timeoutMs);
+        }
+      });
+    }
   });
+}
+
+function detectExternalIpv4Addresses(): string[] {
+  const addresses: string[] = [];
+
+  for (const entries of Object.values(os.networkInterfaces())) {
+    for (const entry of entries ?? []) {
+      if (entry.family === "IPv4" && !entry.internal && !entry.address.startsWith("169.254.")) {
+        addresses.push(entry.address);
+      }
+    }
+  }
+
+  return [...new Set(addresses)];
 }
 
 function parseSsdpHeaders(raw: string): Record<string, string> {
