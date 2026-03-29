@@ -23,6 +23,11 @@ type Copy = {
   welcome: string;
   chooseLanguage: string;
   languageHint: string;
+  checkingOs: string;
+  osDetectedTitle: string;
+  osDetectedBody: string;
+  continueDetectedOs: string;
+  changeDetectedOs: string;
   choosePlatform: string;
   platformHint: string;
   platformMac: string;
@@ -82,6 +87,11 @@ const copy: Record<Language, Copy> = {
     welcome: "Gefuehrtes Onboarding fuer deinen Caruso-Bridge-Start.",
     chooseLanguage: "Sprache waehlen",
     languageHint: "Du kannst die Sprache spaeter im Dashboard aendern.",
+    checkingOs: "Checking OS...",
+    osDetectedTitle: "Betriebssystem erkannt",
+    osDetectedBody: "Dein Betriebssystem wurde als {platform} erkannt.",
+    continueDetectedOs: "Weiter mit {platform}",
+    changeDetectedOs: "Aendern",
     choosePlatform: "Plattform waehlen",
     platformHint: "Die Auswahl steuert plattformspezifische Defaults und Hinweise.",
     platformMac: "Mac",
@@ -113,6 +123,11 @@ const copy: Record<Language, Copy> = {
     welcome: "Guided onboarding for your Caruso Bridge start.",
     chooseLanguage: "Choose language",
     languageHint: "You can change the language later in the dashboard.",
+    checkingOs: "Checking OS...",
+    osDetectedTitle: "Detected operating system",
+    osDetectedBody: "Your operating system was detected as {platform}.",
+    continueDetectedOs: "Continue with {platform}",
+    changeDetectedOs: "Change",
     choosePlatform: "Choose platform",
     platformHint: "This controls platform-specific defaults and guidance.",
     platformMac: "Mac",
@@ -295,6 +310,39 @@ async function chooseLanguage(initialLanguage: Language): Promise<Language> {
   return selected as Language;
 }
 
+async function confirmDetectedPlatform(language: Language, detectedPlatform: TargetPlatform): Promise<TargetPlatform> {
+  const text = copy[language];
+  const platformLabel = formatPlatformLabel(detectedPlatform);
+
+  note(
+    text.osDetectedBody.replace("{platform}", platformLabel),
+    styleTitle(text.osDetectedTitle)
+  );
+
+  const selected = guardCancel(await select({
+    message: styleAccent(text.checkingOs),
+    options: [
+      {
+        value: "continue",
+        label: text.continueDetectedOs.replace("{platform}", platformLabel),
+        hint: styleMuted(text.platformHint)
+      },
+      {
+        value: "change",
+        label: text.changeDetectedOs,
+        hint: styleMuted(text.choosePlatform)
+      }
+    ],
+    initialValue: "continue"
+  }), language);
+
+  if (selected === "change") {
+    return choosePlatform(language, detectedPlatform);
+  }
+
+  return detectedPlatform;
+}
+
 async function choosePlatform(language: Language, initialPlatform: TargetPlatform): Promise<TargetPlatform> {
   const text = copy[language];
   const selected = guardCancel(await select({
@@ -456,14 +504,14 @@ async function main() {
   note(copy[language].welcome, styleTitle(copy[language].title));
 
   language = await chooseLanguage(language);
-  targetPlatform = await choosePlatform(language, targetPlatform);
+  targetPlatform = await confirmDetectedPlatform(language, targetPlatform);
   await storage.updateConfig({
     uiLanguage: language,
     targetPlatform
   });
 
   note(styleMuted(copy[language].languageHint), styleTitle(copy[language].chooseLanguage));
-  note(styleMuted(copy[language].platformHint), styleTitle(copy[language].choosePlatform));
+  note(styleMuted(copy[language].platformHint), styleTitle(copy[language].osDetectedTitle));
 
   const selectedDevice = await chooseDevice(language, targetPlatform);
   if (selectedDevice) {
