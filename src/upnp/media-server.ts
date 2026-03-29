@@ -28,6 +28,7 @@ export type BrowseContext = {
   baseUrl: string;
   tracks: LocalTrack[];
   favorites: TuneInFavorite[];
+  updateId?: string;
 };
 
 type BrowseContainer = {
@@ -263,6 +264,7 @@ export async function buildContentDirectoryBrowseResponse(
   args: Record<string, string>,
   context: BrowseContext
 ): Promise<string> {
+  const updateId = context.updateId || "1";
   const objectId = args.ObjectID ?? "0";
   const browseFlag = args.BrowseFlag ?? "BrowseDirectChildren";
   const startingIndex = Number(args.StartingIndex ?? "0");
@@ -275,7 +277,7 @@ export async function buildContentDirectoryBrowseResponse(
       Result: wrapDidl(""),
       NumberReturned: "0",
       TotalMatches: "0",
-      UpdateID: "1"
+      UpdateID: updateId
     });
   }
 
@@ -300,13 +302,13 @@ export async function buildContentDirectoryBrowseResponse(
     Result: didl,
     NumberReturned: String(paged.length),
     TotalMatches: String(entries.length),
-    UpdateID: "1"
+    UpdateID: updateId
   });
 }
 
-export function buildContentDirectorySystemUpdateIdResponse(): string {
+export function buildContentDirectorySystemUpdateIdResponse(updateId = "1"): string {
   return soapEnvelope("u:GetSystemUpdateIDResponse", CONTENT_DIRECTORY_TYPE, {
-    Id: "1"
+    Id: updateId
   });
 }
 
