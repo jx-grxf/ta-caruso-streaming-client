@@ -38,9 +38,21 @@ async function findAvailablePort(startPort, host, attempts = 20) {
 function detectExternalAddress() {
   const addresses = [];
 
-  for (const entries of Object.values(os.networkInterfaces())) {
+  for (const [name, entries] of Object.entries(os.networkInterfaces())) {
     for (const entry of entries ?? []) {
-      if (entry.family === "IPv4" && !entry.internal && !entry.address.startsWith("169.254.")) {
+      const normalizedName = name.toLowerCase();
+      const isVirtualInterface =
+        normalizedName.includes("tailscale") ||
+        normalizedName.includes("openvpn") ||
+        normalizedName.includes("surfshark") ||
+        normalizedName.includes("wireguard") ||
+        normalizedName.includes("vmware") ||
+        normalizedName.includes("virtualbox") ||
+        normalizedName.includes("hyper-v") ||
+        normalizedName.includes("loopback");
+      const isCarrierGradeNat = /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(entry.address);
+
+      if (entry.family === "IPv4" && !entry.internal && !entry.address.startsWith("169.254.") && !isVirtualInterface && !isCarrierGradeNat) {
         addresses.push(entry.address);
       }
     }
