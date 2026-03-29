@@ -285,9 +285,14 @@ export async function buildContentDirectoryBrowseResponse(
       ? node.children.map((childId) => tree.get(childId)).filter(Boolean) as BrowseNode[]
       : [];
 
-  const paged = requestedCount > 0
-    ? entries.slice(startingIndex, startingIndex + requestedCount)
-    : entries.slice(startingIndex);
+  const shouldIgnorePagination =
+    browseFlag !== "BrowseMetadata" &&
+    (objectId === "0" || objectId === "tunein" || objectId === "tunein-sender" || objectId === "tunein-browse-root");
+  const paged = shouldIgnorePagination
+    ? entries
+    : requestedCount > 0
+      ? entries.slice(startingIndex, startingIndex + requestedCount)
+      : entries.slice(startingIndex);
 
   const didl = wrapDidl(paged.map((entry) => serializeNode(entry)).join(""));
 
