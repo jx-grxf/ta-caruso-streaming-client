@@ -216,7 +216,7 @@ On the Caruso, you browse the bridge as a network media source and access:
 - `TuneIn`
 - `TuneIn > Sender`
 - `TuneIn > Browse`
-- `Lokale Musik`
+- `Local Music`
 
 When you save a station from the dashboard, the bridge resolves the actual playable stream URL and stores it locally so the Caruso can browse and play it later through the UPnP tree.
 
