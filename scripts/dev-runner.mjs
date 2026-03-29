@@ -99,19 +99,26 @@ if (selectedPort !== requestedPort) {
   console.log("");
 }
 
-const child = spawn(
-  process.platform === "win32" ? "npx.cmd" : "npx",
-  watchMode ? ["tsx", "watch", appEntry] : ["tsx", appEntry],
-  {
-    stdio: "inherit",
-    env: {
-      ...process.env,
-      PORT: String(selectedPort),
-      PUBLIC_BASE_URL: publicBaseUrl,
-      DEV_MODE: "1"
-    }
-  }
-);
+const child =
+  process.platform === "win32"
+    ? spawn("cmd.exe", ["/d", "/s", "/c", "npx", ...(watchMode ? ["tsx", "watch", appEntry] : ["tsx", appEntry])], {
+        stdio: "inherit",
+        env: {
+          ...process.env,
+          PORT: String(selectedPort),
+          PUBLIC_BASE_URL: publicBaseUrl,
+          DEV_MODE: "1"
+        }
+      })
+    : spawn("npx", watchMode ? ["tsx", "watch", appEntry] : ["tsx", appEntry], {
+        stdio: "inherit",
+        env: {
+          ...process.env,
+          PORT: String(selectedPort),
+          PUBLIC_BASE_URL: publicBaseUrl,
+          DEV_MODE: "1"
+        }
+      });
 
 child.on("exit", (code, signal) => {
   if (signal) {
