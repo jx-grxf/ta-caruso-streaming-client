@@ -14,6 +14,12 @@
           <h1 data-i18n="heroTitle"></h1>
           <p class="lead" data-i18n="heroLead"></p>
           <p class="credit">Johannes Grof (MIT)</p>
+          <nav class="hero-nav" aria-label="Sections">
+            <a href="#dashboard" class="pill pill-link">Dashboard</a>
+            <a href="#settings" class="pill pill-link">Settings</a>
+            <a href="#devices" class="pill pill-link">Renderer</a>
+            <a href="#library" class="pill pill-link">Library</a>
+          </nav>
         </div>
         <div class="hero-actions">
           <select id="languageSelect" class="select">
@@ -25,7 +31,7 @@
       </header>
 
       <main class="grid">
-        <section class="panel panel-wide status-hero">
+        <section id="dashboardSection" class="panel panel-wide status-hero">
           <div class="panel-header">
             <h2 data-i18n="nowPlaying"></h2>
             <span id="serverBadge" class="badge">...</span>
@@ -58,7 +64,7 @@
           </div>
         </section>
 
-        <section class="panel">
+        <section id="settingsSection" class="panel">
           <div class="panel-header">
             <h2 data-i18n="serverConfig"></h2>
           </div>
@@ -84,14 +90,14 @@
           </form>
         </section>
 
-        <section class="panel">
+        <section id="systemSection" class="panel">
           <div class="panel-header">
             <h2 data-i18n="serverMetricsTitle"></h2>
           </div>
           <div id="serverMetrics" class="status-stack"></div>
         </section>
 
-        <section class="panel">
+        <section id="favoritesSection" class="panel">
           <div class="panel-header">
             <h2 data-i18n="favoritesTitle"></h2>
           </div>
@@ -99,7 +105,7 @@
           <div id="favoriteStations" class="list"></div>
         </section>
 
-        <section class="panel panel-wide">
+        <section id="devicesSection" class="panel panel-wide">
           <div class="panel-header">
             <h2 data-i18n="rendererTitle"></h2>
             <button id="discoverButton" class="button button-secondary" data-i18n="rediscover"></button>
@@ -107,7 +113,7 @@
           <div id="deviceList" class="list"></div>
         </section>
 
-        <section class="panel panel-wide">
+        <section id="searchSection" class="panel panel-wide">
           <div class="panel-header">
             <h2 data-i18n="tuneinTitle"></h2>
           </div>
@@ -118,7 +124,7 @@
           <div id="tuneinResults" class="list"></div>
         </section>
 
-        <section class="panel panel-wide">
+        <section id="radioSection" class="panel panel-wide">
           <div class="panel-header">
             <h2 data-i18n="radioBrowserTitle"></h2>
           </div>
@@ -130,7 +136,7 @@
           <div id="radioBrowserResults" class="list"></div>
         </section>
 
-        <section class="panel panel-wide">
+        <section id="browseSection" class="panel panel-wide">
           <div class="panel-header">
             <h2 data-i18n="tuneinBrowseTitle"></h2>
             <div class="toolbar-inline">
@@ -142,7 +148,7 @@
           <div id="tuneinBrowseResults" class="list"></div>
         </section>
 
-        <section class="panel panel-wide">
+        <section id="librarySection" class="panel panel-wide">
           <div class="panel-header">
             <h2 data-i18n="localMusicTitle"></h2>
             <div class="toolbar-inline">

@@ -109,6 +109,13 @@ h1 {
   font-size: 0.95rem;
 }
 
+.hero-nav {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
 .lead {
   max-width: 60ch;
   line-height: 1.55;
@@ -189,6 +196,12 @@ input {
   grid-column: span 4;
   padding: 22px;
   border-radius: 24px;
+  scroll-margin-top: 20px;
+}
+
+.panel-targeted {
+  border-color: rgba(33, 193, 214, 0.4);
+  box-shadow: 0 0 0 1px rgba(33, 193, 214, 0.18), var(--shadow);
 }
 
 .panel-wide {
@@ -241,6 +254,17 @@ input {
   color: #b9f6ff;
   font-size: 0.78rem;
   border: 1px solid rgba(33, 193, 214, 0.18);
+}
+
+.pill-link {
+  text-decoration: none;
+  transition: transform 130ms ease, border-color 130ms ease, background 130ms ease;
+}
+
+.pill-link:hover {
+  transform: translateY(-1px);
+  border-color: rgba(33, 193, 214, 0.32);
+  background: rgba(33, 193, 214, 0.18);
 }
 
 .pill-success {
