@@ -1,7 +1,10 @@
+import dotenv from "dotenv";
 import net from "node:net";
 import os from "node:os";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
+
+dotenv.config();
 
 function parsePort(value, fallback) {
   const parsed = Number(value);
@@ -36,10 +39,20 @@ async function findAvailablePort(startPort, host, attempts = 20) {
 }
 
 function detectExternalAddress() {
-  const addresses = [];
+  const configuredAddress = process.env.NETWORK_ADDRESS?.trim();
+  if (configuredAddress) {
+    return configuredAddress;
+  }
+
+  const configuredInterface = process.env.NETWORK_INTERFACE?.trim();
+  const candidates = [];
 
   for (const [name, entries] of Object.entries(os.networkInterfaces())) {
     for (const entry of entries ?? []) {
+      if (entry.family !== "IPv4" || entry.internal || entry.address.startsWith("169.254.")) {
+        continue;
+      }
+
       const normalizedName = name.toLowerCase();
       const isVirtualInterface =
         normalizedName.includes("tailscale") ||
@@ -49,16 +62,55 @@ function detectExternalAddress() {
         normalizedName.includes("vmware") ||
         normalizedName.includes("virtualbox") ||
         normalizedName.includes("hyper-v") ||
-        normalizedName.includes("loopback");
+        normalizedName.includes("loopback") ||
+        normalizedName.includes("vethernet") ||
+        normalizedName.includes("docker") ||
+        normalizedName.includes("podman") ||
+        normalizedName.includes("colima") ||
+        normalizedName.includes("zerotier") ||
+        normalizedName.includes("utun") ||
+        normalizedName.includes("bridge") ||
+        normalizedName.includes("tap") ||
+        normalizedName.includes("tun");
       const isCarrierGradeNat = /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(entry.address);
+      const priority =
+        (entry.address.startsWith("192.168.") ? 0 : entry.address.startsWith("10.") ? 10 : /^172\.(1[6-9]|2\d|3[0-1])\./.test(entry.address) ? 20 : 30) +
+        (normalizedName.includes("ethernet") || normalizedName.includes("wi-fi") || normalizedName.includes("wifi") || normalizedName === "en0" ? -2 : 0) +
+        (normalizedName.includes("default switch") || normalizedName.includes("nat") ? 50 : 0) +
+        (isVirtualInterface || isCarrierGradeNat ? 1000 : 0);
 
-      if (entry.family === "IPv4" && !entry.internal && !entry.address.startsWith("169.254.") && !isVirtualInterface && !isCarrierGradeNat) {
-        addresses.push(entry.address);
-      }
+      candidates.push({
+        interfaceName: name,
+        address: entry.address,
+        priority
+      });
     }
   }
 
-  return addresses.sort((left, right) => left.localeCompare(right))[0] || "127.0.0.1";
+  if (configuredInterface) {
+    const matched = candidates.find((candidate) => candidate.interfaceName === configuredInterface);
+    if (matched) {
+      return matched.address;
+    }
+  }
+
+  candidates.sort((left, right) => left.priority - right.priority || left.interfaceName.localeCompare(right.interfaceName) || left.address.localeCompare(right.address));
+  return candidates[0]?.address || "127.0.0.1";
+}
+
+function resolvePublicBaseUrl(host, port) {
+  const configuredBaseUrl = process.env.PUBLIC_BASE_URL?.trim();
+  if (!configuredBaseUrl) {
+    return `http://${host}:${port}`;
+  }
+
+  try {
+    const parsed = new URL(configuredBaseUrl);
+    parsed.port = String(port);
+    return parsed.toString().replace(/\/$/, "");
+  } catch {
+    return `http://${host}:${port}`;
+  }
 }
 
 function parseBooleanFlag(value, fallback) {
@@ -103,7 +155,7 @@ const requestedPort = parsePort(process.env.PORT, 3847);
 const host = process.env.HOST || "0.0.0.0";
 const selectedPort = await findAvailablePort(requestedPort, host);
 const publicHost = host === "0.0.0.0" || host === "::" ? detectExternalAddress() : host;
-const publicBaseUrl = `http://${publicHost}:${selectedPort}`;
+const publicBaseUrl = resolvePublicBaseUrl(publicHost, selectedPort);
 const appEntry = cliArgs.entry || process.env.APP_ENTRY || "src/index.ts";
 const watchMode = parseBooleanFlag(cliArgs.watch ?? process.env.WATCH_MODE, true);
 

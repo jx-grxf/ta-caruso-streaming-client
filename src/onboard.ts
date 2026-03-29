@@ -1,6 +1,12 @@
 import chalk, { Chalk } from "chalk";
 import { confirm, intro, isCancel, note, outro, select, spinner } from "@clack/prompts";
-import { config } from "./config.js";
+import {
+  config,
+  listNetworkCandidates,
+  persistNetworkSelection,
+  pickBestNetworkCandidate,
+  type NetworkCandidate
+} from "./config.js";
 import { detectDefaultTargetPlatform, openExternalUrl, type TargetPlatform } from "./platform.js";
 import { createServerManager } from "./server-manager.js";
 import { AppStorage } from "./storage.js";
@@ -34,6 +40,16 @@ type Copy = {
   platformWindows: string;
   platformMacHint: string;
   platformWindowsHint: string;
+  chooseNetwork: string;
+  networkHint: string;
+  networkAuto: string;
+  networkAutoHint: string;
+  networkManual: string;
+  networkManualHint: string;
+  networkRecommended: string;
+  networkVirtual: string;
+  networkSaved: string;
+  noNetworkFound: string;
   searchingTitle: string;
   searchingBody: string;
   searchDone: string;
@@ -98,6 +114,16 @@ const copy: Record<Language, Copy> = {
     platformWindows: "Windows",
     platformMacHint: "macOS-Optimierungen und Mac-Texte verwenden",
     platformWindowsHint: "Windows-Optimierungen und PC-Texte verwenden",
+    chooseNetwork: "Netzwerk waehlen",
+    networkHint: "Automatic waehlt den besten lokalen Adapter. Manual listet alle verfuegbaren IPv4-Adapter auf.",
+    networkAuto: "Automatic check",
+    networkAutoHint: "Empfohlenen lokalen Adapter automatisch auswaehlen",
+    networkManual: "Manual selection",
+    networkManualHint: "Adapter selbst aus der Liste waehlen",
+    networkRecommended: "Empfohlen",
+    networkVirtual: "Virtuell / VPN",
+    networkSaved: "Netzwerk gespeichert",
+    noNetworkFound: "Kein passender IPv4-Netzwerkadapter gefunden.",
     searchingTitle: "Caruso finden",
     searchingBody: "Bitte sicherstellen: Mac und Caruso sind im gleichen Netzwerk und der Caruso ist eingeschaltet.",
     searchDone: "Passende Geraete gefunden.",
@@ -134,6 +160,16 @@ const copy: Record<Language, Copy> = {
     platformWindows: "Windows",
     platformMacHint: "Use macOS-oriented defaults and copy",
     platformWindowsHint: "Use Windows-oriented defaults and PC copy",
+    chooseNetwork: "Choose network",
+    networkHint: "Automatic picks the best local adapter. Manual lists every available IPv4 adapter.",
+    networkAuto: "Automatic check",
+    networkAutoHint: "Automatically use the recommended local adapter",
+    networkManual: "Manual selection",
+    networkManualHint: "Pick the adapter yourself from a list",
+    networkRecommended: "Recommended",
+    networkVirtual: "Virtual / VPN",
+    networkSaved: "Network saved",
+    noNetworkFound: "No suitable IPv4 network adapter found.",
     searchingTitle: "Find your Caruso",
     searchingBody: "Please make sure your Mac and Caruso are on the same network and the Caruso is powered on.",
     searchDone: "Matching devices found.",
@@ -365,6 +401,86 @@ async function choosePlatform(language: Language, initialPlatform: TargetPlatfor
   return selected as TargetPlatform;
 }
 
+function formatNetworkCandidate(language: Language, candidate: NetworkCandidate, recommendedAddress?: string): string {
+  const tags = [];
+
+  if (candidate.address === recommendedAddress) {
+    tags.push(copy[language].networkRecommended);
+  }
+
+  if (candidate.isVirtual) {
+    tags.push(copy[language].networkVirtual);
+  }
+
+  const suffix = tags.length > 0 ? `\n${styleMuted(tags.join(" • "))}` : "";
+  return `${candidate.interfaceName} (${candidate.address})${suffix}`;
+}
+
+async function chooseNetwork(language: Language): Promise<{
+  publicBaseUrl: string;
+  interfaceName: string;
+  address: string;
+}> {
+  const text = copy[language];
+  const candidates = listNetworkCandidates(config.port);
+  const recommended = pickBestNetworkCandidate(candidates);
+
+  note(text.networkHint, styleTitle(text.chooseNetwork));
+
+  if (!recommended) {
+    throw new Error(text.noNetworkFound);
+  }
+
+  const mode = guardCancel(await select({
+    message: styleAccent(text.chooseNetwork),
+    options: [
+      {
+        value: "automatic",
+        label: text.networkAuto,
+        hint: styleMuted(`${text.networkAutoHint}: ${recommended.interfaceName} (${recommended.address})`)
+      },
+      {
+        value: "manual",
+        label: text.networkManual,
+        hint: styleMuted(text.networkManualHint)
+      }
+    ],
+    initialValue: "automatic"
+  }), language) as "automatic" | "manual";
+
+  let selectedCandidate = recommended;
+  if (mode === "manual") {
+    const selectedAddress = guardCancel(await select({
+      message: styleAccent(text.chooseNetwork),
+      options: candidates.map((candidate) => ({
+        value: candidate.address,
+        label: formatNetworkCandidate(language, candidate, recommended.address),
+        hint: styleMuted(candidate.baseUrl)
+      })),
+      initialValue: recommended.address
+    }), language);
+    selectedCandidate = candidates.find((candidate) => candidate.address === selectedAddress) ?? recommended;
+  }
+
+  if (!selectedCandidate) {
+    throw new Error(text.noNetworkFound);
+  }
+
+  const saved = await persistNetworkSelection({
+    interfaceName: selectedCandidate.interfaceName,
+    address: selectedCandidate.address,
+    mode,
+    port: config.port
+  });
+
+  note(
+    `${saved.interfaceName} (${saved.address})\n${styleMuted(saved.publicBaseUrl)}`,
+    styleTitle(text.networkSaved)
+  );
+
+  return saved;
+}
+
 async function chooseDevice(language: Language, platform: TargetPlatform): Promise<WizardDevice | undefined> {
   const text = copy[language];
 
@@ -505,13 +621,15 @@ async function main() {
 
   language = await chooseLanguage(language);
   targetPlatform = await confirmDetectedPlatform(language, targetPlatform);
-  await storage.updateConfig({
-    uiLanguage: language,
-    targetPlatform
-  });
-
   note(styleMuted(copy[language].languageHint), styleTitle(copy[language].chooseLanguage));
   note(styleMuted(copy[language].platformHint), styleTitle(copy[language].osDetectedTitle));
+
+  const networkSelection = await chooseNetwork(language);
+  await storage.updateConfig({
+    uiLanguage: language,
+    targetPlatform,
+    publicBaseUrl: networkSelection.publicBaseUrl
+  });
 
   const selectedDevice = await chooseDevice(language, targetPlatform);
   if (selectedDevice) {
