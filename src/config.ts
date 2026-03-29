@@ -53,12 +53,40 @@ function getAddressPriority(address: string): number {
   return 3;
 }
 
+function shouldIgnoreInterface(name: string, address: string): boolean {
+  const normalizedName = name.toLowerCase();
+
+  if (
+    normalizedName.includes("tailscale") ||
+    normalizedName.includes("openvpn") ||
+    normalizedName.includes("surfshark") ||
+    normalizedName.includes("wireguard") ||
+    normalizedName.includes("vmware") ||
+    normalizedName.includes("virtualbox") ||
+    normalizedName.includes("hyper-v") ||
+    normalizedName.includes("loopback")
+  ) {
+    return true;
+  }
+
+  if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(address)) {
+    return true;
+  }
+
+  return false;
+}
+
 export function detectExternalIPv4Addresses(): string[] {
   const addresses: string[] = [];
 
-  for (const entries of Object.values(os.networkInterfaces())) {
+  for (const [name, entries] of Object.entries(os.networkInterfaces())) {
     for (const entry of entries ?? []) {
-      if (entry.family === "IPv4" && !entry.internal && !entry.address.startsWith("169.254.")) {
+      if (
+        entry.family === "IPv4" &&
+        !entry.internal &&
+        !entry.address.startsWith("169.254.") &&
+        !shouldIgnoreInterface(name, entry.address)
+      ) {
         addresses.push(entry.address);
       }
     }
