@@ -24,7 +24,7 @@ const parser = new XMLParser({
 });
 
 const STREAM_HEADERS = {
-  "user-agent": "CarusoBridge/0.2.0",
+  "user-agent": "CarusoReborn/0.2.0",
   "accept": "audio/mpeg,audio/aac,audio/*,*/*;q=0.8"
 };
 

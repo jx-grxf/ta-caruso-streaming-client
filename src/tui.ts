@@ -104,7 +104,7 @@ function frame(title: string, lines: string[], width: number): string[] {
 }
 
 function buildBanner(width: number): string[] {
-  const headline = color(36, "Caruso Bridge");
+  const headline = color(36, "Caruso Reborn");
   const subtitle = dim("Terminal-first control room");
   return frame("Overview", [headline, subtitle], width);
 }

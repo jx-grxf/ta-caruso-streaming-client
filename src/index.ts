@@ -8,7 +8,7 @@ const manager = createServerManager({
 });
 
 const isDevMode = process.env.DEV_MODE === "1";
-const appLabel = isDevMode ? "Caruso Bridge Dev" : "Caruso Bridge";
+const appLabel = isDevMode ? "Caruso Reborn Dev" : "Caruso Reborn";
 
 function printStartupError(error: unknown) {
   const nodeError = error as NodeJS.ErrnoException;

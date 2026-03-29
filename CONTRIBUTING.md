@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in improving T+A Caruso Streaming Bridge.
+Thanks for your interest in improving Caruso Reborn.
 
 This project is still primarily maintained by a single author, so the goal of this guide is to keep contributions clear, reviewable, and safe for a network-sensitive desktop app.
 

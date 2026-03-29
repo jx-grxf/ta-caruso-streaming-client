@@ -1,7 +1,7 @@
 const translations = {
   de: {
-    eyebrow: "T+A Caruso Streaming Bridge",
-    heroTitle: "T+A Caruso Streaming Bridge",
+    eyebrow: "Caruso Reborn",
+    heroTitle: "Caruso Reborn",
     heroLead: "Sender suchen, als Favorit in die browsbare Senderliste legen und live sehen, was dein Caruso gerade macht.",
     refresh: "Neu laden",
     openBrowser: "Im Browser",
@@ -65,8 +65,8 @@ const translations = {
     chooseDesktopOnly: "Ordnerwahl ist nur in der Desktop-App verfuegbar."
   },
   en: {
-    eyebrow: "T+A Caruso Streaming Bridge",
-    heroTitle: "T+A Caruso Streaming Bridge",
+    eyebrow: "Caruso Reborn",
+    heroTitle: "Caruso Reborn",
     heroLead: "Search stations, pin them into a browsable station list and watch your Caruso status live.",
     refresh: "Refresh",
     openBrowser: "Open in browser",

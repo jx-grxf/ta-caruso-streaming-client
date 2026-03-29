@@ -20,7 +20,7 @@ function getSsdpServerHeader(): string {
     ? os.release().split(".").slice(0, 2).join(".")
     : os.release();
 
-  return `${systemName}/${systemVersion} UPnP/1.0 CarusoBridge/0.2.0 DLNADOC/1.50`;
+  return `${systemName}/${systemVersion} UPnP/1.0 CarusoReborn/0.2.0 DLNADOC/1.50`;
 }
 
 export type BrowseContext = {
@@ -77,7 +77,7 @@ export function getDeviceDescriptionXml(options: {
     <manufacturer>Codex</manufacturer>
     <manufacturerURL>https://openai.com</manufacturerURL>
     <modelDescription>Local streaming bridge for T+A Caruso</modelDescription>
-    <modelName>Caruso Bridge</modelName>
+    <modelName>Caruso Reborn</modelName>
     <modelNumber>0.2.0</modelNumber>
     <serialNumber>${escapeXml(serverUuid)}</serialNumber>
     <UDN>uuid:${escapeXml(serverUuid)}</UDN>

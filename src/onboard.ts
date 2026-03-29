@@ -98,8 +98,8 @@ const theme = {
 
 const copy: Record<Language, Copy> = {
   de: {
-    title: "Caruso Bridge Setup",
-    welcome: "Gefuehrtes Onboarding fuer deinen Caruso-Bridge-Start.",
+    title: "Caruso Reborn Setup",
+    welcome: "Gefuehrtes Onboarding fuer deinen Caruso-Reborn-Start.",
     chooseLanguage: "Sprache waehlen",
     languageHint: "Du kannst die Sprache spaeter im Dashboard aendern.",
     checkingOs: "Betriebssystem wird geprueft...",
@@ -140,11 +140,11 @@ const copy: Record<Language, Copy> = {
     finishDashboard: "Dashboard jetzt oeffnen",
     saved: "Auswahl gespeichert.",
     cancelled: "Setup abgebrochen.",
-    closeout: "Caruso Bridge ist bereit."
+    closeout: "Caruso Reborn ist bereit."
   },
   en: {
-    title: "Caruso Bridge Setup",
-    welcome: "Guided onboarding for your Caruso Bridge start.",
+    title: "Caruso Reborn Setup",
+    welcome: "Guided onboarding for your Caruso Reborn start.",
     chooseLanguage: "Choose language",
     languageHint: "You can change the language later in the dashboard.",
     checkingOs: "Checking OS...",
@@ -185,7 +185,7 @@ const copy: Record<Language, Copy> = {
     finishDashboard: "Open dashboard now",
     saved: "Selection saved.",
     cancelled: "Setup cancelled.",
-    closeout: "Caruso Bridge is ready."
+    closeout: "Caruso Reborn is ready."
   }
 };
 
@@ -242,6 +242,7 @@ function isBridgeSelfDevice(description: UpnpDeviceDescription): boolean {
   return (
     manufacturer.includes("codex") ||
     manufacturer.includes("openai") ||
+    modelName.includes("caruso reborn") ||
     modelName.includes("caruso bridge") ||
     (deviceType.includes("mediaserver") && friendlyName.includes("caruso"))
   );
@@ -605,7 +606,7 @@ async function finishSetup(language: Language, platform: TargetPlatform, selecte
   outro(styleTitle(text.closeout));
   await runTerminalUi(manager, {
     dataDir: config.dataDir,
-    appLabel: "Caruso Bridge"
+    appLabel: "Caruso Reborn"
   });
 }
 

@@ -765,7 +765,7 @@ export async function createApp(dataDir: string, options?: {
     const resolved = await resolvePlayableUrl(parseAndValidateUrl(source).toString());
     const upstream = await fetch(resolved, {
       headers: {
-        "user-agent": "CarusoBridge/0.2.0",
+        "user-agent": "CarusoReborn/0.2.0",
         "accept": "audio/mpeg,audio/aac,audio/*,*/*;q=0.8"
       }
     });
@@ -800,7 +800,7 @@ export async function createApp(dataDir: string, options?: {
     const inspected = await inspectStream(source);
     const upstream = await fetch(inspected.resolvedUrl, {
       headers: {
-        "user-agent": "CarusoBridge/0.2.0",
+        "user-agent": "CarusoReborn/0.2.0",
         "accept": "audio/mpeg,audio/aac,audio/*,*/*;q=0.8"
       }
     });

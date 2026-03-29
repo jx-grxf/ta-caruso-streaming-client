@@ -46,7 +46,7 @@ async function createMainWindow() {
     height: 860,
     minWidth: 980,
     minHeight: 720,
-    title: "Caruso Bridge",
+    title: "Caruso Reborn",
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
@@ -113,7 +113,7 @@ function rebuildTray() {
     }
   ]);
 
-  tray.setToolTip(`Caruso Bridge${state.running ? " aktiv" : " gestoppt"}`);
+  tray.setToolTip(`Caruso Reborn${state.running ? " aktiv" : " gestoppt"}`);
   tray.setContextMenu(menu);
 }
 
@@ -129,7 +129,7 @@ app.whenReady()
   })
   .catch(async (error) => {
     await dialog.showErrorBox(
-      "Caruso Bridge konnte nicht gestartet werden",
+      "Caruso Reborn konnte nicht gestartet werden",
       error instanceof Error ? error.message : "Unbekannter Fehler beim Start."
     );
     app.quit();

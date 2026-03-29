@@ -65,7 +65,7 @@ async function fetchStations(query: string): Promise<RadioBrowserStation[]> {
 
   const response = await fetch(url, {
     headers: {
-      "user-agent": "CarusoBridge/0.2.0"
+      "user-agent": "CarusoReborn/0.2.0"
     }
   });
 

@@ -1,6 +1,6 @@
 <div align="center">
 
-# T+A Caruso Streaming Bridge
+# Caruso Reborn
 
 **Bring practical internet radio and local playback back to first-generation T+A Caruso systems**
 
@@ -8,14 +8,14 @@
 ![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white)
 ![Terminal UI](https://img.shields.io/badge/Terminal%20UI-first-111827)
 ![Fastify](https://img.shields.io/badge/Fastify-5-000000?logo=fastify&logoColor=white)
-![CI](https://img.shields.io/github/actions/workflow/status/jx-grxf/ta-caruso-streaming-client/ci.yml?branch=main&label=CI)
+![CI](https://img.shields.io/github/actions/workflow/status/jx-grxf/Caruso-Reborn/ci.yml?branch=main&label=CI)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 </div>
 
 T+A no longer offers a practical native internet-radio path for older Caruso devices. This project exists to bring that workflow back in a way that still feels usable today: local, self-hosted, and focused on the Caruso as it actually behaves on a home network.
 
-T+A Caruso Streaming Bridge turns your computer into a local terminal app, UPnP/DLNA media source, and station management dashboard so older Caruso units can browse saved stations, TuneIn categories, and local music again.
+Caruso Reborn turns your computer into a local terminal app, UPnP/DLNA media source, and station management dashboard so older Caruso units can browse saved stations, TuneIn categories, and local music again.
 
 This is an independent community project and is **not affiliated with T+A**.
 
@@ -134,8 +134,8 @@ Still rough or incomplete:
 ### First run
 
 ```bash
-git clone https://github.com/jx-grxf/ta-caruso-streaming-client.git
-cd ta-caruso-streaming-client
+git clone https://github.com/jx-grxf/Caruso-Reborn.git
+cd Caruso-Reborn
 npm install
 npm run onboard
 ```
@@ -162,8 +162,8 @@ This opens the control-room TUI directly:
 ### Run from source
 
 ```bash
-git clone https://github.com/jx-grxf/ta-caruso-streaming-client.git
-cd ta-caruso-streaming-client
+git clone https://github.com/jx-grxf/Caruso-Reborn.git
+cd Caruso-Reborn
 npm install
 npm run quickstart
 ```
