@@ -1,6 +1,7 @@
 import net from "node:net";
 import os from "node:os";
 import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
 
 function parsePort(value, fallback) {
   const parsed = Number(value);
@@ -83,6 +84,8 @@ function parseCliArgs(argv) {
 }
 
 const cliArgs = parseCliArgs(process.argv.slice(2));
+const require = createRequire(import.meta.url);
+const tsxCliPath = require.resolve("tsx/dist/cli.mjs");
 
 const requestedPort = parsePort(process.env.PORT, 3847);
 const host = process.env.HOST || "0.0.0.0";
@@ -99,26 +102,15 @@ if (selectedPort !== requestedPort) {
   console.log("");
 }
 
-const child =
-  process.platform === "win32"
-    ? spawn("cmd.exe", ["/d", "/s", "/c", "npx", ...(watchMode ? ["tsx", "watch", appEntry] : ["tsx", appEntry])], {
-        stdio: "inherit",
-        env: {
-          ...process.env,
-          PORT: String(selectedPort),
-          PUBLIC_BASE_URL: publicBaseUrl,
-          DEV_MODE: "1"
-        }
-      })
-    : spawn("npx", watchMode ? ["tsx", "watch", appEntry] : ["tsx", appEntry], {
-        stdio: "inherit",
-        env: {
-          ...process.env,
-          PORT: String(selectedPort),
-          PUBLIC_BASE_URL: publicBaseUrl,
-          DEV_MODE: "1"
-        }
-      });
+const child = spawn(process.execPath, [tsxCliPath, ...(watchMode ? ["watch"] : []), appEntry], {
+  stdio: "inherit",
+  env: {
+    ...process.env,
+    PORT: String(selectedPort),
+    PUBLIC_BASE_URL: publicBaseUrl,
+    DEV_MODE: "1"
+  }
+});
 
 child.on("exit", (code, signal) => {
   if (signal) {
