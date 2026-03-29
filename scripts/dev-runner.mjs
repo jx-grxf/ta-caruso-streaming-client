@@ -85,7 +85,7 @@ function parseCliArgs(argv) {
 
 const cliArgs = parseCliArgs(process.argv.slice(2));
 const require = createRequire(import.meta.url);
-const tsxCliPath = require.resolve("tsx/dist/cli.mjs");
+const tsxCliPath = require.resolve("tsx/cli");
 
 const requestedPort = parsePort(process.env.PORT, 3847);
 const host = process.env.HOST || "0.0.0.0";
