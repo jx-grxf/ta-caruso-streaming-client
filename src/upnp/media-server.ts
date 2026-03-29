@@ -250,6 +250,15 @@ const TUNEIN_ROOT_CATEGORIES = [
 ];
 const MAX_TUNEIN_BROWSE_ITEMS = 60;
 
+function isBrowseSafeTuneInMimeType(mimeType?: string): boolean {
+  return (mimeType || "").toLowerCase().includes("mpeg");
+}
+
+function isBrowseSafeTuneInFormats(formats?: string): boolean {
+  const normalizedFormats = (formats || "").toLowerCase();
+  return normalizedFormats.includes("mp3") || normalizedFormats.includes("mpeg");
+}
+
 function isAllowedTuneInBrowseUrl(rawUrl: string): boolean {
   try {
     const parsed = new URL(rawUrl);
@@ -481,7 +490,8 @@ async function buildBrowseTree(context: BrowseContext, objectId: string): Promis
   const addItem = (item: BrowseItem) => tree.set(item.id, item);
 
   const localTrackIds = context.tracks.map((track) => `local-track:${track.id}`);
-  const favoriteIds = context.favorites.map((favorite) => `tunein-favorite:${favorite.id}`);
+  const browseSafeFavorites = context.favorites.filter((favorite) => isBrowseSafeTuneInMimeType(favorite.mimeType));
+  const favoriteIds = browseSafeFavorites.map((favorite) => `tunein-favorite:${favorite.id}`);
 
   addContainer({
     kind: "container",
@@ -510,7 +520,7 @@ async function buildBrowseTree(context: BrowseContext, objectId: string): Promis
     upnpClass: "object.container.storageFolder"
   });
 
-  for (const favorite of context.favorites) {
+  for (const favorite of browseSafeFavorites) {
     addItem({
       kind: "item",
       id: `tunein-favorite:${favorite.id}`,
@@ -566,7 +576,7 @@ async function buildBrowseTree(context: BrowseContext, objectId: string): Promis
         continue;
       }
 
-      if (item.type === "audio" && item.actions?.play) {
+      if (item.type === "audio" && item.actions?.play && isBrowseSafeTuneInFormats(item.formats)) {
         const childId = createBrowseItemId(item.actions.play);
         addItem({
           kind: "item",
@@ -613,7 +623,8 @@ async function buildBrowseTree(context: BrowseContext, objectId: string): Promis
 
 function buildFallbackBrowseTree(context: BrowseContext): Map<string, BrowseNode> {
   const tree = new Map<string, BrowseNode>();
-  const favoriteIds = context.favorites.map((favorite) => `tunein-favorite:${favorite.id}`);
+  const browseSafeFavorites = context.favorites.filter((favorite) => isBrowseSafeTuneInMimeType(favorite.mimeType));
+  const favoriteIds = browseSafeFavorites.map((favorite) => `tunein-favorite:${favorite.id}`);
   const localTrackIds = context.tracks.map((track) => `local-track:${track.id}`);
 
   tree.set("0", {
@@ -663,7 +674,7 @@ function buildFallbackBrowseTree(context: BrowseContext): Map<string, BrowseNode
     upnpClass: "object.container.storageFolder"
   });
 
-  for (const favorite of context.favorites) {
+  for (const favorite of browseSafeFavorites) {
     tree.set(`tunein-favorite:${favorite.id}`, {
       kind: "item",
       id: `tunein-favorite:${favorite.id}`,
