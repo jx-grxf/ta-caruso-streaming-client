@@ -4,3 +4,6 @@ dist
 .caruso-data
 .DS_Store
 .playwright-cli
+release
+assets/mac/CarusoReborn.iconset
+assets/mac/icon-1024.png

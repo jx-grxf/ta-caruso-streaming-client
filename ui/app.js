@@ -146,6 +146,16 @@ const state = {
   rendererStatus: null
 };
 
+const sectionRoutes = {
+  dashboard: "dashboardSection",
+  settings: "settingsSection",
+  favorites: "favoritesSection",
+  devices: "devicesSection",
+  search: "searchSection",
+  browse: "browseSection",
+  library: "librarySection"
+};
+
 const elements = Object.fromEntries(
   [
     "refreshButton", "languageSelect", "serverBadge", "statusSummary", "startServerButton", "stopServerButton",
@@ -157,6 +167,28 @@ const elements = Object.fromEntries(
 
 function t(key) {
   return translations[state.language][key] || key;
+}
+
+function getSectionForRoute(route) {
+  const resolvedId = sectionRoutes[route] || sectionRoutes.dashboard;
+  return document.getElementById(resolvedId);
+}
+
+function focusRoute(route, behavior = "smooth") {
+  document.querySelectorAll(".panel-targeted").forEach((node) => node.classList.remove("panel-targeted"));
+
+  const section = getSectionForRoute(route);
+  if (!section) {
+    return;
+  }
+
+  section.classList.add("panel-targeted");
+  section.scrollIntoView({ behavior, block: "start" });
+}
+
+function focusCurrentHash(behavior = "smooth") {
+  const route = window.location.hash.replace(/^#/, "") || "dashboard";
+  focusRoute(route, behavior);
 }
 
 function escapeHtml(value) {
@@ -738,6 +770,10 @@ elements.refreshButton.addEventListener("click", () => {
   }, "Aktualisieren fehlgeschlagen.");
 });
 
+window.addEventListener("hashchange", () => {
+  focusCurrentHash();
+});
+
 elements.languageSelect.addEventListener("change", () => {
   void runWithToast(async () => {
     state.language = elements.languageSelect.value === "en" ? "en" : "de";
@@ -951,6 +987,8 @@ await runWithToast(async () => {
   await Promise.all([refreshStatus(), refreshDevices(), refreshTracks(), browseTuneIn(null, false, null)]);
   renderRadioBrowser();
 }, "Initiales Laden fehlgeschlagen.");
+
+focusCurrentHash("auto");
 setInterval(() => {
   void refreshRendererStatus().catch((error) => {
     console.error("Renderer-Status konnte nicht aktualisiert werden.", error);
