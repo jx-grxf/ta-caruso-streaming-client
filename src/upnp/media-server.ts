@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import dgram from "node:dgram";
+import os from "node:os";
 import { XMLParser } from "fast-xml-parser";
 import type { LocalTrack } from "../local-library.js";
 import { browseDirectory } from "../providers/tunein.js";
@@ -8,6 +9,19 @@ import type { TuneInFavorite } from "../storage.js";
 const DEVICE_TYPE = "urn:schemas-upnp-org:device:MediaServer:1";
 const CONTENT_DIRECTORY_TYPE = "urn:schemas-upnp-org:service:ContentDirectory:1";
 const CONNECTION_MANAGER_TYPE = "urn:schemas-upnp-org:service:ConnectionManager:1";
+
+function getSsdpServerHeader(): string {
+  const systemName = process.platform === "win32"
+    ? "Windows"
+    : process.platform === "darwin"
+      ? "macOS"
+      : os.type();
+  const systemVersion = process.platform === "win32"
+    ? os.release().split(".").slice(0, 2).join(".")
+    : os.release();
+
+  return `${systemName}/${systemVersion} UPnP/1.0 CarusoBridge/0.2.0 DLNADOC/1.50`;
+}
 
 export type BrowseContext = {
   serverName: string;
@@ -344,6 +358,7 @@ export function createSsdpServer(options: {
   serverUuid: string;
   friendlyName: string;
 }) {
+  const serverHeader = getSsdpServerHeader();
   const sockets = options.locations.map((locationConfig) => ({
     address: locationConfig.address,
     baseUrl: locationConfig.baseUrl,
@@ -370,7 +385,7 @@ export function createSsdpServer(options: {
       "CACHE-CONTROL: max-age=1800",
       "EXT:",
       `LOCATION: ${location}`,
-      "SERVER: macOS/13.0 UPnP/1.0 CarusoBridge/0.2.0 DLNADOC/1.50",
+      `SERVER: ${serverHeader}`,
       `ST: ${st}`,
       `USN: ${usn}`,
       "",
@@ -395,7 +410,7 @@ export function createSsdpServer(options: {
         `LOCATION: ${location}`,
         `NT: ${nt}`,
         `NTS: ${nts}`,
-        "SERVER: macOS/13.0 UPnP/1.0 CarusoBridge/0.2.0 DLNADOC/1.50",
+        `SERVER: ${serverHeader}`,
         "OPT: \"http://schemas.upnp.org/upnp/1/0/\"; ns=01",
         "01-NLS: 9d6e2b72-36b3-4c86-b9dd-5b01feadf4b0",
         `USN: ${usn}`,
