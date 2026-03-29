@@ -1,10 +1,14 @@
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { Readable } from "node:stream";
+import type { ReadableStream as WebReadableStream } from "node:stream/web";
 import { fileURLToPath } from "node:url";
 import fastifyStatic from "@fastify/static";
+import ffmpegPath from "ffmpeg-static";
 import Fastify from "fastify";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { config as baseConfig, resolveActivePublicBaseUrl } from "./config.js";
@@ -188,8 +192,8 @@ function isSupportedStreamMimeType(mimeType: string): boolean {
   return ["audio/mpeg", "audio/aac", "audio/flac"].includes(mimeType);
 }
 
-function isBrowseCompatibleFavoriteMimeType(mimeType: string): boolean {
-  return mimeType.toLowerCase().includes("mpeg");
+function shouldTranscodeForCaruso(mimeType: string): boolean {
+  return mimeType.toLowerCase().includes("aac");
 }
 
 function applyStreamHeaders(reply: FastifyReply, mimeType: string) {
@@ -201,6 +205,41 @@ function applyStreamHeaders(reply: FastifyReply, mimeType: string) {
   reply.header("contentFeatures.dlna.org", dlnaContentFeaturesForMimeType(mimeType));
   reply.header("accept-ranges", "none");
   reply.header("icy-metadata", "0");
+}
+
+async function sendTranscodedMp3Stream(reply: FastifyReply, upstream: Response) {
+  const resolvedFfmpegPath = ffmpegPath as unknown as string | null;
+  if (!resolvedFfmpegPath) {
+    throw new Error("ffmpeg is not available for AAC transcoding.");
+  }
+
+  const sourceStream = upstream.body ? Readable.fromWeb(upstream.body as unknown as WebReadableStream) : undefined;
+  if (!sourceStream) {
+    throw new Error("Upstream stream body is missing.");
+  }
+
+  const ffmpeg: ChildProcessWithoutNullStreams = spawn(resolvedFfmpegPath, [
+    "-loglevel", "error",
+    "-i", "pipe:0",
+    "-vn",
+    "-acodec", "libmp3lame",
+    "-b:a", "192k",
+    "-f", "mp3",
+    "pipe:1"
+  ], {
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+
+  sourceStream.on("error", () => {
+    ffmpeg.kill("SIGKILL");
+  });
+
+  ffmpeg.stdin.on("error", () => undefined);
+  ffmpeg.stderr.on("data", () => undefined);
+  sourceStream.pipe(ffmpeg.stdin);
+
+  applyStreamHeaders(reply, "audio/mpeg");
+  return reply.send(ffmpeg.stdout);
 }
 
 function resolveRequestBaseUrl(hostHeader: string | undefined, fallbackBaseUrl: string): string {
@@ -522,10 +561,6 @@ export async function createApp(dataDir: string, options?: {
       throw new HttpError(`Unsupported stream format for Caruso: ${inspected.mimeType}`, 400);
     }
 
-    if (!isBrowseCompatibleFavoriteMimeType(inspected.mimeType)) {
-      throw new HttpError("Only MP3 streams can be added to the browsable Caruso sender list. Use 'Jetzt spielen' for AAC streams.", 400);
-    }
-
     return {
       items: await storage.addTuneInFavorite({
         id: body.id?.trim() || normalizeFavoriteId(body.title),
@@ -710,8 +745,11 @@ export async function createApp(dataDir: string, options?: {
     }
 
     const contentType = upstream.headers.get("content-type")?.split(";")[0]?.trim() || "audio/mpeg";
-    applyStreamHeaders(reply, contentType);
+    if (shouldTranscodeForCaruso(contentType)) {
+      return sendTranscodedMp3Stream(reply, upstream);
+    }
 
+    applyStreamHeaders(reply, contentType);
     return reply.send(upstream.body);
   }
 
@@ -741,6 +779,10 @@ export async function createApp(dataDir: string, options?: {
     }
 
     const mimeType = upstream.headers.get("content-type")?.split(";")[0]?.trim() || favorite?.mimeType || inspected.mimeType || "audio/mpeg";
+    if (shouldTranscodeForCaruso(mimeType)) {
+      return sendTranscodedMp3Stream(reply, upstream);
+    }
+
     applyStreamHeaders(reply, mimeType);
     return reply.send(upstream.body);
   });
