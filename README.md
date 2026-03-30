@@ -21,8 +21,15 @@ This is an independent community project and is **not affiliated with T+A**.
 
 ---
 
+## Showcase
+
+![Caruso Reborn dashboard showcase](docs/showcase/caruso-reborn-showcase.png)
+
+---
+
 ## Contents
 
+- [Showcase](#showcase)
 - [Highlights](#highlights)
 - [Why This Exists](#why-this-exists)
 - [Scope](#scope)
