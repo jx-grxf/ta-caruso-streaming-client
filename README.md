@@ -9,6 +9,7 @@
 ![Terminal UI](https://img.shields.io/badge/Terminal%20UI-first-111827)
 ![Fastify](https://img.shields.io/badge/Fastify-5-000000?logo=fastify&logoColor=white)
 ![CI](https://img.shields.io/github/actions/workflow/status/jx-grxf/Caruso-Reborn/ci.yml?branch=main&label=CI)
+![Beta](https://img.shields.io/badge/macOS%20app-BETA-ff8a1c)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 </div>
@@ -36,6 +37,7 @@ This is an independent community project and is **not affiliated with T+A**.
 - [Tech Stack](#tech-stack)
 - [Requirements](#requirements)
 - [Current Status](#current-status)
+- [Mac App (Beta)](#mac-app-beta)
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
 - [How It Works](#how-it-works)
@@ -85,7 +87,7 @@ The goal is not to re-create the original T+A backend. The goal is to restore a 
 - **not a hosted service**
 - **not an official T+A product**
 
-This repo is currently a **source-first project**. It is meant to be run from source today; packaged desktop releases may come later.
+This repo is currently a **source-first project**. A packaged macOS app is now available as a **Beta** release and should still be treated as early-access software.
 
 ---
 
@@ -130,9 +132,21 @@ Implemented and usable now:
 
 Still rough or incomplete:
 
-- no packaged macOS release yet
+- the packaged macOS app is available only as a **Beta**
 - Deezer integration is still experimental/incomplete
 - public-facing docs and screenshots are still being improved
+
+---
+
+## Mac App (Beta)
+
+There is now a packaged **macOS app (Beta)** for easier local setup on Mac.
+
+- install it from the latest GitHub release DMG
+- treat the app as **Beta** and expect rough edges
+- the packaged app contains the shipped code and assets only; your local `.env`, `.caruso-data`, and other personal runtime files are created on your machine at first launch and are not bundled into the DMG
+
+If you want the most stable path, run the project from source. If you want the fastest Mac setup, use the DMG Beta.
 
 ---
 

@@ -55,10 +55,10 @@ const dmgBackgroundSvg = `
   <rect x="86" y="120" width="1188" height="640" rx="42" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.08)" />
 
   <text x="120" y="220" fill="#ffffff" font-size="78" font-family="Avenir Next, SF Pro Display, Helvetica Neue, Arial" font-weight="700">
-    Caruso Reborn
+    Caruso Reborn Beta
   </text>
   <text x="120" y="282" fill="rgba(255,255,255,0.72)" font-size="30" font-family="Avenir Next, SF Pro Text, Helvetica Neue, Arial" font-weight="500">
-    Drop the app into Applications to install your local Caruso control room.
+    Beta macOS app. Drop it into Applications to install your local Caruso control room.
   </text>
   <text x="120" y="678" fill="#92f7ff" font-size="28" font-family="Avenir Next, SF Pro Text, Helvetica Neue, Arial" font-weight="600">
     1. Open    2. Drag to Applications    3. Launch from the menu bar

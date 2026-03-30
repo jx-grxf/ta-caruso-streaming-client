@@ -61,7 +61,7 @@
   },
   "build": {
     "appId": "com.jxgrxf.carusoreborn",
-    "productName": "Caruso Reborn",
+    "productName": "Caruso Reborn Beta",
     "asar": true,
     "directories": {
       "output": "release"

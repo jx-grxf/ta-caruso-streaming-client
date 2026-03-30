@@ -12,7 +12,7 @@ const preloadPath = path.resolve(currentDir, "../../electron/preload.cjs");
 const dataDir = path.join(app.getPath("userData"), "data");
 const serverManager = createServerManager({ dataDir });
 const desktopUiOrigin = `http://127.0.0.1:${config.port}`;
-const appLabel = "Caruso Reborn";
+const appLabel = "Caruso Reborn Beta";
 const isMac = process.platform === "darwin";
 
 let mainWindow: BrowserWindow | null = null;
@@ -85,7 +85,7 @@ function configureAutoUpdates() {
       await dialog.showMessageBox({
         type: "info",
         title: "Update wird geladen",
-        message: `Caruso Reborn ${info.version} wird heruntergeladen.`,
+        message: `Caruso Reborn Beta ${info.version} wird heruntergeladen.`,
         detail: "Sobald das Update fertig ist, kannst du die App direkt neu starten."
       });
     }
@@ -117,7 +117,7 @@ function configureAutoUpdates() {
       defaultId: 0,
       cancelId: 1,
       title: "Update bereit",
-      message: `Caruso Reborn ${info.version} wurde heruntergeladen.`,
+      message: `Caruso Reborn Beta ${info.version} wurde heruntergeladen.`,
       detail: "Starte die App neu, um das Update zu installieren."
     });
 
