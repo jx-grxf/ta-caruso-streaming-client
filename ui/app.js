@@ -310,10 +310,19 @@ function extractBitrate(qualityLabel) {
   return match ? Number(match[1]) : null;
 }
 
+function normalizeDisplayTitle(title) {
+  return String(title || "").replace(/\s*\|\s*HQ\s*$/i, "").trim();
+}
+
+function renderTitleWithHqBadge(title, bitrate) {
+  const normalizedTitle = normalizeDisplayTitle(title);
+  const hqBadge = bitrate && bitrate >= 192 ? '<span class="pill pill-warning source-hq-badge">HQ</span>' : "";
+  return `<span class="source-label">${escapeHtml(normalizedTitle || title)}${hqBadge}</span>`;
+}
+
 function renderCurrentSourceLabel(title, qualityLabel) {
   const bitrate = extractBitrate(qualityLabel);
-  const hqBadge = bitrate && bitrate >= 192 ? '<span class="pill pill-warning source-hq-badge">HQ</span>' : "";
-  return `<span class="source-label">${escapeHtml(title)}${hqBadge}</span>`;
+  return renderTitleWithHqBadge(title, bitrate);
 }
 
 function renderDevices() {
@@ -351,9 +360,9 @@ function renderTuneIn() {
 
   elements.tuneinResults.innerHTML = state.tuneinItems.map((item) => `
     <div class="item">
-      <div class="item-row">
-        <div>
-          <strong>${escapeHtml(item.text)}</strong>
+        <div class="item-row">
+          <div>
+          <strong>${renderTitleWithHqBadge(item.text, item.bitrate)}</strong>
           <div class="meta">${escapeHtml(item.subtext || item.type)}${item.bitrate ? ` · ${escapeHtml(item.bitrate)} kbps` : ""}${item.formats ? ` · ${escapeHtml(item.formats.toUpperCase())}` : ""}</div>
           <div class="pill-row">${renderCompatibilityPills(item)}</div>
         </div>
@@ -387,9 +396,9 @@ function renderRadioBrowser() {
 
   elements.radioBrowserResults.innerHTML = state.radioBrowserItems.map((item) => `
     <div class="item">
-      <div class="item-row">
-        <div>
-          <strong>${escapeHtml(item.text)}</strong>
+        <div class="item-row">
+          <div>
+          <strong>${renderTitleWithHqBadge(item.text, item.bitrate)}</strong>
           <div class="meta">${escapeHtml(item.subtext || "Radio Browser")}${item.bitrate ? ` · ${escapeHtml(item.bitrate)} kbps` : ""}</div>
           <div class="pill-row">${renderCompatibilityPills(item)}</div>
         </div>
@@ -427,9 +436,9 @@ function renderTuneInBrowse() {
 
   elements.tuneinBrowseResults.innerHTML = state.browseItems.map((item) => `
     <div class="item">
-      <div class="item-row">
-        <div>
-          <strong>${escapeHtml(item.text)}</strong>
+        <div class="item-row">
+          <div>
+          <strong>${renderTitleWithHqBadge(item.text, item.bitrate)}</strong>
           <div class="meta">${escapeHtml(item.subtext || item.type || "")}${item.bitrate ? ` · ${escapeHtml(item.bitrate)} kbps` : ""}${item.formats ? ` · ${escapeHtml(item.formats.toUpperCase())}` : ""}</div>
           ${item.type === "audio" ? `<div class="pill-row">${renderCompatibilityPills(item)}</div>` : ""}
         </div>
@@ -464,9 +473,9 @@ function renderFavorites() {
 
   elements.favoriteStations.innerHTML = state.favorites.map((item) => `
     <div class="item">
-      <div class="item-row">
-        <div>
-          <strong>${escapeHtml(item.title)}</strong>
+        <div class="item-row">
+          <div>
+          <strong>${renderTitleWithHqBadge(item.title, item.bitrate)}</strong>
           <div class="meta">${escapeHtml(item.subtitle || "TuneIn")}${item.bitrate ? ` · ${escapeHtml(item.bitrate)} kbps` : ""}${item.mimeType ? ` · ${escapeHtml(item.mimeType)}` : ""}</div>
           <div class="pill-row">${renderFavoritePills(item)}</div>
         </div>
