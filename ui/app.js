@@ -297,9 +297,23 @@ function formatDuration(totalSeconds) {
 function renderRendererStatus() {
   elements.selectedRendererLabel.textContent = state.selectedDeviceName || "-";
   elements.transportStateLabel.textContent = state.rendererStatus?.transportState || "-";
-  elements.currentTitleLabel.textContent = state.rendererStatus?.title || t("unknown");
+  elements.currentTitleLabel.innerHTML = renderCurrentSourceLabel(
+    state.rendererStatus?.title || t("unknown"),
+    state.rendererStatus?.quality || ""
+  );
   elements.qualityLabel.textContent = state.rendererStatus?.quality || "-";
   elements.positionLabel.textContent = state.rendererStatus?.relativeTimePosition || "-";
+}
+
+function extractBitrate(qualityLabel) {
+  const match = String(qualityLabel || "").match(/(\d+)\s*kbps/i);
+  return match ? Number(match[1]) : null;
+}
+
+function renderCurrentSourceLabel(title, qualityLabel) {
+  const bitrate = extractBitrate(qualityLabel);
+  const hqBadge = bitrate && bitrate >= 192 ? '<span class="pill pill-warning source-hq-badge">HQ</span>' : "";
+  return `<span class="source-label">${escapeHtml(title)}${hqBadge}</span>`;
 }
 
 function renderDevices() {
@@ -346,7 +360,9 @@ function renderTuneIn() {
         <div class="item-actions">
           <button class="button button-ghost" data-play-now="${encodeURIComponent(JSON.stringify({
             title: item.text,
-            streamUrl: item.actions?.play
+            streamUrl: item.actions?.play,
+            bitrate: item.bitrate,
+            mimeType: item.formats?.includes("aac") ? "audio/aac" : "audio/mpeg"
           }))}">${t("playNow")}</button>
           <button class="button button-secondary" data-add-favorite="${encodeURIComponent(JSON.stringify({
             id: item.guideId || item.text.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
@@ -380,7 +396,9 @@ function renderRadioBrowser() {
         <div class="item-actions">
           <button class="button button-ghost" data-play-now="${encodeURIComponent(JSON.stringify({
             title: item.text,
-            streamUrl: item.actions?.play
+            streamUrl: item.actions?.play,
+            bitrate: item.bitrate,
+            mimeType: item.formats?.includes("aac") ? "audio/aac" : "audio/mpeg"
           }))}">${t("playNow")}</button>
           <button class="button button-secondary" data-add-favorite="${encodeURIComponent(JSON.stringify({
             id: item.guideId || item.text.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
@@ -419,7 +437,9 @@ function renderTuneInBrowse() {
           ${item.type === "link" && (item.actions?.browse || item.actions?.play) ? `<button class="button button-ghost" data-browse-link="${encodeDataValue(item.actions?.browse || item.actions?.play)}" data-browse-label="${encodeDataValue(item.text)}">${state.language === "en" ? "Open" : "Oeffnen"}</button>` : ""}
           ${item.type === "audio" && item.actions?.play ? `<button class="button button-ghost" data-play-now="${encodeURIComponent(JSON.stringify({
             title: item.text,
-            streamUrl: item.actions.play
+            streamUrl: item.actions.play,
+            bitrate: item.bitrate,
+            mimeType: item.formats?.includes("aac") ? "audio/aac" : "audio/mpeg"
           }))}">${t("playNow")}</button>` : ""}
           ${item.type === "audio" && item.actions?.play ? `<button class="button button-secondary" data-add-favorite="${encodeURIComponent(JSON.stringify({
             id: item.guideId || item.text.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
@@ -453,7 +473,9 @@ function renderFavorites() {
         <div class="item-actions">
           <button class="button button-ghost" data-play-now="${encodeURIComponent(JSON.stringify({
             title: item.title,
-            streamUrl: item.streamUrl
+            streamUrl: item.streamUrl,
+            bitrate: item.bitrate,
+            mimeType: item.mimeType
           }))}">${t("playNow")}</button>
           <button type="button" class="button button-ghost" data-remove-favorite="${encodeDataValue(item.id)}" data-remove-title="${encodeDataValue(item.title)}">${t("remove")}</button>
         </div>
@@ -673,7 +695,9 @@ async function playNow(item, triggerButton) {
       body: JSON.stringify({
         deviceDescriptionUrl: state.selectedDeviceUrl,
         title: item.title,
-        streamUrl: item.streamUrl
+        streamUrl: item.streamUrl,
+        bitrate: item.bitrate,
+        mimeType: item.mimeType
       })
     });
     await refreshRendererStatus();

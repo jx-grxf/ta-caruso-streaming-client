@@ -271,6 +271,19 @@ input {
   line-height: 1.25;
 }
 
+.source-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.source-hq-badge {
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 5px 10px;
+}
+
 #publicUrlLabel,
 #selectedRendererLabel,
 #currentTitleLabel,

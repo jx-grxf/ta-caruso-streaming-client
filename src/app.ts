@@ -132,7 +132,12 @@ function inferQualityLabel(input: {
   currentTrackUri?: string;
 }): string {
   if (input.bitrate) {
-    return `${input.bitrate} kbps`;
+    const codec = input.mimeType?.includes("aac")
+      ? "AAC"
+      : input.mimeType?.includes("mpeg")
+        ? "MP3"
+        : null;
+    return codec ? `${input.bitrate} kbps ${codec}` : `${input.bitrate} kbps`;
   }
 
   const uri = input.currentTrackUri || input.currentUri || "";
@@ -863,6 +868,8 @@ export async function createApp(dataDir: string, options?: {
       deviceDescriptionUrl?: string;
       streamUrl?: string;
       title?: string;
+      bitrate?: number;
+      mimeType?: string;
     };
 
     if (!body.deviceDescriptionUrl || !body.streamUrl) {
@@ -881,7 +888,11 @@ export async function createApp(dataDir: string, options?: {
     const metadata = buildAudioMetadata(body.title || "TuneIn Stream", localUrl.toString(), "audio/mpeg");
     rendererSessions.set(localUrl.toString(), {
       title: body.title || "TuneIn Stream",
-      quality: "128 kbps MP3",
+      quality: inferQualityLabel({
+        bitrate: body.bitrate,
+        mimeType: body.mimeType,
+        currentUri: validatedStreamUrl.toString()
+      }),
       sourceType: "tunein"
     });
 
