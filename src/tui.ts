@@ -1,5 +1,4 @@
 import os from "node:os";
-import readline from "node:readline";
 import { config, detectExternalIPv4Addresses } from "./config.js";
 import { openExternalUrl } from "./platform.js";
 import { AppStorage } from "./storage.js";
@@ -315,7 +314,7 @@ export async function runTerminalUi(manager: ServerManager, options: {
       process.stdin.setRawMode(false);
     }
 
-    process.stdin.removeAllListeners("keypress");
+    process.stdin.removeAllListeners("data");
     process.removeListener("SIGINT", handleSigint);
     process.removeListener("SIGTERM", handleSigterm);
     if (process.stdout.isTTY) {
@@ -355,21 +354,25 @@ export async function runTerminalUi(manager: ServerManager, options: {
       .catch(() => undefined);
   }, 4000);
 
-  process.stdin.removeAllListeners("keypress");
   process.stdin.removeAllListeners("data");
-  readline.emitKeypressEvents(process.stdin);
   process.stdin.resume();
   if (process.stdin.isTTY) {
     process.stdin.setRawMode(true);
   }
 
-  process.stdin.on("keypress", (_input, key) => {
-    if (key.sequence === "\u0003" || key.name === "q") {
+  process.stdin.on("data", (chunk: Buffer | string) => {
+    const raw = typeof chunk === "string" ? chunk : chunk.toString("utf8");
+
+    if (raw.length !== 1) {
+      return;
+    }
+
+    if (raw === "\u0003" || raw === "q") {
       void cleanup();
       return;
     }
 
-    if (key.name === "s") {
+    if (raw === "s") {
       void withBusyState(async () => {
         if (manager.getState().running) {
           await manager.stop();
@@ -383,7 +386,7 @@ export async function runTerminalUi(manager: ServerManager, options: {
       return;
     }
 
-    if (key.name === "b") {
+    if (raw === "b") {
       void withBusyState(async () => {
         if (!manager.getState().running) {
           await manager.start();
@@ -396,7 +399,7 @@ export async function runTerminalUi(manager: ServerManager, options: {
       return;
     }
 
-    if (key.name === "r") {
+    if (raw === "r") {
       void withBusyState(async () => {
         await manager.refreshNetworkBindings();
         await refreshSnapshot();
@@ -405,7 +408,7 @@ export async function runTerminalUi(manager: ServerManager, options: {
       return;
     }
 
-    if (key.name === "d") {
+    if (raw === "d") {
       void withBusyState(async () => {
         await runDiscovery();
       });
