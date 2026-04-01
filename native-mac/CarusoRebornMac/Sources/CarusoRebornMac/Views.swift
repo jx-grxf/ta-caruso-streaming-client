@@ -103,12 +103,18 @@ struct DashboardView: View {
                 Spacer(minLength: 24)
 
                 VStack(alignment: .trailing, spacing: 10) {
-                    AdaptiveButton("Neu laden", prominent: true) {
-                        Task {
-                            await model.refreshAll()
+                    HStack(spacing: 10) {
+                        AdaptiveButton("Web-Dashboard", prominent: false) {
+                            model.openWebDashboard()
                         }
+
+                        AdaptiveButton("Neu laden", prominent: true) {
+                            Task {
+                                await model.refreshAll()
+                            }
+                        }
+                        .disabled(model.isBusy)
                     }
-                    .disabled(model.isBusy)
 
                     if let status = model.status {
                         Text(status.server.publicBaseURL)
@@ -663,6 +669,10 @@ struct MenuBarExtraView: View {
 
             AdaptiveButton("App oeffnen", prominent: true) {
                 openWindow(id: "main")
+            }
+
+            AdaptiveButton("Web-Dashboard") {
+                model.openWebDashboard()
             }
 
             AdaptiveButton("Settings") {

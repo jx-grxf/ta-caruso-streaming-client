@@ -254,6 +254,32 @@ final class AppModel: ObservableObject {
         isBootstrapping = false
     }
 
+    func openWebDashboard() {
+        guard let urlString = status?.server.publicBaseURL ?? backend.localBaseURL.absoluteString as String?,
+              let url = URL(string: urlString) else {
+            return
+        }
+
+        NSWorkspace.shared.open(url)
+    }
+
+    func refreshLiveSnapshot() async {
+        guard backend.isRunning else { return }
+
+        do {
+            let status: StatusResponse = try await request(path: "api/status")
+            self.status = status
+            self.uiLanguage = AppLanguage.systemDefault
+            self.targetPlatform = .mac
+            self.rendererFilterName = status.config.rendererFilterName ?? rendererFilterName
+            self.deezerARL = status.config.deezerArl ?? deezerARL
+            await refreshRendererStatus()
+            lastError = nil
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
     func refreshAll() async {
         guard backend.isRunning else { return }
 
@@ -527,17 +553,25 @@ final class AppModel: ObservableObject {
         pollingTask?.cancel()
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(5))
-                await self?.refreshRendererStatus()
+                try? await Task.sleep(for: .seconds(3))
+                await self?.refreshLiveSnapshot()
             }
         }
+    }
+
+    private func buildURL(for path: String) throws -> URL {
+        guard let url = URL(string: path, relativeTo: backend.localBaseURL)?.absoluteURL else {
+            throw NSError(domain: "CarusoRebornMac", code: 3, userInfo: [NSLocalizedDescriptionKey: "Ungueltige Backend-URL fuer \(path)"])
+        }
+
+        return url
     }
 
     private func request<Response: Decodable>(
         path: String,
         method: String = "GET"
     ) async throws -> Response {
-        let url = backend.localBaseURL.appending(path: path)
+        let url = try buildURL(for: path)
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.timeoutInterval = 12
@@ -551,7 +585,7 @@ final class AppModel: ObservableObject {
         method: String = "GET",
         body: Body?
     ) async throws -> Response {
-        let url = backend.localBaseURL.appending(path: path)
+        let url = try buildURL(for: path)
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.timeoutInterval = 12
