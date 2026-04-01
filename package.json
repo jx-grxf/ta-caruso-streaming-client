@@ -33,6 +33,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/index.js",
     "desktop": "npm run build && electron .",
+    "dist:mac:native": "bash scripts/build-native-mac-app.sh",
     "check": "tsc --noEmit -p tsconfig.json",
     "pack:mac": "npm run assets:mac && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir",
     "dist:mac": "npm run assets:mac && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg zip"

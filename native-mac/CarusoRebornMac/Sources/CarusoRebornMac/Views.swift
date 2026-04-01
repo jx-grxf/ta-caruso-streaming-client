@@ -93,7 +93,7 @@ struct DashboardView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Caruso Reborn")
                         .font(.system(size: 36, weight: .bold, design: .rounded))
-                    Text("Die native macOS-Zentrale fuer dein bestehendes Caruso-Reborn-Backend.")
+                    Text("Die native macOS-Zentrale für dein bestehendes Caruso-Reborn-Backend.")
                         .font(.title3)
                         .foregroundStyle(.secondary)
                     Label(backend.statusDescription, systemImage: backend.isRunning ? "checkmark.circle.fill" : "xmark.circle.fill")
@@ -131,7 +131,7 @@ struct DashboardView: View {
     private var metricsSection: some View {
         LazyVGrid(columns: metricsColumns, spacing: 14) {
             metricCard("Public URL", model.status?.server.publicBaseURL ?? "—")
-            metricCard("Caruso", model.selectedDeviceName ?? "Noch keiner gewaehlt")
+            metricCard("Caruso", model.selectedDeviceName ?? "Noch keiner gewählt")
             metricCard("UPnP Name", model.status?.upnp.friendlyName ?? "—")
             metricCard("CPU", model.status.map { "\(String(format: "%.1f", $0.server.metrics.cpuUsagePercent)) %" } ?? "—")
             metricCard("RAM App", model.status?.server.metrics.processMemoryRss ?? "—")
@@ -145,10 +145,10 @@ struct DashboardView: View {
                 sectionHeader("Live-Status", subtitle: "Was der Caruso gerade macht.")
 
                 VStack(spacing: 12) {
-                    infoRow("Ausgewaehlter Caruso", model.selectedDeviceName ?? "Noch keiner ausgewaehlt")
+                    infoRow("Ausgewählter Caruso", model.selectedDeviceName ?? "Noch keiner ausgewählt")
                     infoRow("Transport", model.rendererStatus?.transportState ?? "Unbekannt")
                     infoRow("Quelle", model.rendererStatus?.title ?? "Keine Wiedergabe")
-                    infoRow("Qualitaet", model.rendererStatus?.quality ?? "—")
+                    infoRow("Qualität", model.rendererStatus?.quality ?? "—")
                     infoRow("Position", model.rendererStatus?.relativeTimePosition ?? "—")
                 }
             }
@@ -159,7 +159,7 @@ struct DashboardView: View {
         GlassPanel {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    sectionHeader("Caruso / Renderer", subtitle: "Waehle das Zielgeraet fuer Wiedergabe und Browsing.")
+                    sectionHeader("Caruso / Renderer", subtitle: "Wähle das Zielgerät für Wiedergabe und Browsing.")
                     Spacer()
                     AdaptiveButton("Erneut suchen") {
                         Task {
@@ -172,7 +172,7 @@ struct DashboardView: View {
                     ContentUnavailableView(
                         "Kein Caruso gefunden",
                         systemImage: "dot.radiowaves.left.and.right",
-                        description: Text("Pruefe Netzwerk, Strom und ob der Caruso im gleichen LAN sichtbar ist.")
+                        description: Text("Prüfe Netzwerk, Strom und ob der Caruso im gleichen LAN sichtbar ist.")
                     )
                 } else {
                     VStack(spacing: 10) {
@@ -186,7 +186,7 @@ struct DashboardView: View {
                                         .foregroundStyle(.secondary)
                                 }
                             } trailing: {
-                                AdaptiveButton(model.selectedDeviceURL == device.location ? "Ausgewaehlt" : "Auswaehlen", prominent: model.selectedDeviceURL != device.location) {
+                                AdaptiveButton(model.selectedDeviceURL == device.location ? "Ausgewählt" : "Auswählen", prominent: model.selectedDeviceURL != device.location) {
                                     Task {
                                         await model.saveSelectedRenderer(device)
                                     }
@@ -239,9 +239,9 @@ struct DashboardView: View {
         GlassPanel {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    sectionHeader("Lokale Musik", subtitle: "Die ersten 80 Tracks fuer schnellen Zugriff.")
+                    sectionHeader("Lokale Musik", subtitle: "Die ersten 80 Tracks für schnellen Zugriff.")
                     Spacer()
-                    AdaptiveButton("Ordner hinzufuegen", prominent: true) {
+                    AdaptiveButton("Ordner hinzufügen", prominent: true) {
                         Task {
                             await model.chooseAndAddFolder()
                         }
@@ -328,7 +328,7 @@ struct SettingsContentView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Settings")
                                 .font(.system(size: 32, weight: .bold, design: .rounded))
-                            Text("Netzwerk, Caruso und Backend-Verhalten spaeter erneut anpassen.")
+                            Text("Netzwerk, Caruso und Backend-Verhalten später erneut anpassen.")
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -355,7 +355,7 @@ struct SettingsContentView: View {
 
                 GlassPanel {
                     VStack(alignment: .leading, spacing: 14) {
-                        sectionHeader("Netzwerk", subtitle: "Hier kannst du spaeter jederzeit den aktiven Adapter wechseln.")
+                        sectionHeader("Netzwerk", subtitle: "Hier kannst du später jederzeit den aktiven Adapter wechseln.")
 
                         if model.networkCandidates.isEmpty {
                             Text("Noch keine Adapter vom Backend geladen.")
@@ -384,9 +384,9 @@ struct SettingsContentView: View {
 
                 GlassPanel {
                     VStack(alignment: .leading, spacing: 14) {
-                        sectionHeader("Musikordner", subtitle: "Lokale Quellen fuer den Caruso-Browser.")
+                        sectionHeader("Musikordner", subtitle: "Lokale Quellen für den Caruso-Browser.")
 
-                        AdaptiveButton("Ordner hinzufuegen", prominent: true) {
+                        AdaptiveButton("Ordner hinzufügen", prominent: true) {
                             Task {
                                 await model.chooseAndAddFolder()
                             }
@@ -421,7 +421,7 @@ struct SettingsContentView: View {
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
 
-                        Text("Wenn die App ein schon laufendes Backend findet, kann sie es benutzen, aber nicht hart stoppen. Stoppen geht nur fuer ein Backend, das diese App selbst gestartet hat.")
+                        Text("Wenn die App ein schon laufendes Backend findet, kann sie es benutzen, aber nicht hart stoppen. Stoppen geht nur für ein Backend, das diese App selbst gestartet hat.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
@@ -488,7 +488,7 @@ struct OnboardingView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Caruso Reborn Setup")
                                     .font(.system(size: 38, weight: .bold, design: .rounded))
-                                Text("Kurzes Mac-Setup fuer Netzwerk und deinen Caruso. Die Sprache folgt automatisch macOS.")
+                                Text("Kurzes Mac-Setup für Netzwerk und deinen Caruso. Die Sprache folgt automatisch macOS.")
                                     .font(.title3)
                                     .foregroundStyle(.secondary)
                             }
@@ -508,7 +508,7 @@ struct OnboardingView: View {
                 GlassPanel(cornerRadius: 28, padding: 18) {
                     HStack {
                         if let previous = step.previous {
-                            AdaptiveButton("Zurueck") {
+                            AdaptiveButton("Zurück") {
                                 step = previous
                             }
                         }
@@ -516,7 +516,7 @@ struct OnboardingView: View {
                         Spacer()
 
                         if step == .finish {
-                            AdaptiveButton("Setup abschliessen", prominent: true) {
+                            AdaptiveButton("Setup abschließen", prominent: true) {
                                 Task {
                                     await model.completeOnboarding()
                                 }
@@ -559,7 +559,7 @@ struct OnboardingView: View {
         case .network:
             GlassPanel {
                 VStack(alignment: .leading, spacing: 16) {
-                    sectionHeader("Netzwerk", subtitle: "Waehle den Adapter, ueber den dein Caruso die Bridge erreichen soll.")
+                    sectionHeader("Netzwerk", subtitle: "Wähle den Adapter, über den dein Caruso die Bridge erreichen soll.")
 
                     if model.networkCandidates.isEmpty {
                         ProgressView("Netzwerkadapter werden geladen...")
@@ -583,7 +583,7 @@ struct OnboardingView: View {
                                         }
                                     }
                                 } trailing: {
-                                    AdaptiveButton(model.selectedNetworkCandidateID == candidate.id ? "Ausgewaehlt" : "Waehlen", prominent: model.selectedNetworkCandidateID != candidate.id) {
+                                    AdaptiveButton(model.selectedNetworkCandidateID == candidate.id ? "Ausgewählt" : "Wählen", prominent: model.selectedNetworkCandidateID != candidate.id) {
                                         model.selectedNetworkCandidateID = candidate.id
                                     }
                                     .disabled(model.selectedNetworkCandidateID == candidate.id)
@@ -597,7 +597,7 @@ struct OnboardingView: View {
             GlassPanel {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
-                        sectionHeader("Caruso", subtitle: "Suche deinen Renderer im lokalen Netzwerk und speichere ihn fuer spaeter.")
+                        sectionHeader("Caruso", subtitle: "Suche deinen Renderer im lokalen Netzwerk und speichere ihn für später.")
                         Spacer()
                         AdaptiveButton("Erneut suchen") {
                             Task {
@@ -624,7 +624,7 @@ struct OnboardingView: View {
                                             .foregroundStyle(.secondary)
                                     }
                                 } trailing: {
-                                    AdaptiveButton(model.selectedDeviceURL == device.location ? "Ausgewaehlt" : "Waehlen", prominent: model.selectedDeviceURL != device.location) {
+                                AdaptiveButton(model.selectedDeviceURL == device.location ? "Ausgewählt" : "Wählen", prominent: model.selectedDeviceURL != device.location) {
                                         model.selectedDevice(device)
                                     }
                                     .disabled(model.selectedDeviceURL == device.location)
@@ -673,13 +673,13 @@ struct MenuBarExtraView: View {
                 .font(.headline)
             Label(backend.statusDescription, systemImage: backend.isRunning ? "checkmark.circle.fill" : "xmark.circle.fill")
                 .foregroundStyle(backend.isRunning ? .green : .orange)
-            Text(model.selectedDeviceName ?? "Noch kein Caruso gewaehlt")
+            Text(model.selectedDeviceName ?? "Noch kein Caruso gewählt")
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
 
             Divider()
 
-            AdaptiveButton("App oeffnen", prominent: true) {
+            AdaptiveButton("App öffnen", prominent: true) {
                 openWindow(id: "main")
             }
 
@@ -687,11 +687,11 @@ struct MenuBarExtraView: View {
                 model.openWebDashboard()
             }
 
-            AdaptiveButton("Settings") {
+            AdaptiveButton("Einstellungen") {
                 NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
             }
 
-            AdaptiveButton("Refresh") {
+            AdaptiveButton("Aktualisieren") {
                 Task {
                     await model.refreshAll()
                 }

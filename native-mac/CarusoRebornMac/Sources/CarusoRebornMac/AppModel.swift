@@ -27,7 +27,7 @@ final class BackendController: ObservableObject {
             source = process == nil ? .external : .owned
             latestLogLine = process == nil
                 ? "Externes Backend erkannt auf \(localBaseURL.absoluteString)"
-                : "Eigenes Backend laeuft auf \(localBaseURL.absoluteString)"
+                : "Eigenes Backend läuft auf \(localBaseURL.absoluteString)"
             return
         }
 
@@ -37,16 +37,22 @@ final class BackendController: ObservableObject {
         }
 
         do {
-            let repoRoot = try locateRepoRoot()
-            try await ensureBackendArtifacts(in: repoRoot)
+            let backendRoot = try locateBackendRoot()
+            try await ensureBackendArtifacts(in: backendRoot)
+            let launch = try nodeLaunchConfiguration(for: backendRoot)
+            let appSupportDirectory = try ensureAppSupportDirectory()
 
             let process = Process()
             let outputPipe = Pipe()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = ["node", "dist/src/native-server.js"]
-            process.currentDirectoryURL = repoRoot
+            process.executableURL = launch.executableURL
+            process.arguments = launch.arguments
+            process.currentDirectoryURL = backendRoot
             process.standardOutput = outputPipe
             process.standardError = outputPipe
+            process.environment = backendEnvironment(
+                backendRoot: backendRoot,
+                appSupportDirectory: appSupportDirectory
+            )
 
             outputPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
                 let data = handle.availableData
@@ -137,7 +143,7 @@ final class BackendController: ObservableObject {
 
         if reachable {
             latestLogLine = source == .owned
-                ? "Eigenes Backend laeuft auf \(localBaseURL.absoluteString)"
+                ? "Eigenes Backend läuft auf \(localBaseURL.absoluteString)"
                 : "Externes Backend erkannt auf \(localBaseURL.absoluteString)"
             lastError = nil
         } else {
@@ -152,7 +158,7 @@ final class BackendController: ObservableObject {
                 lastError = nil
                 source = process == nil ? .external : .owned
                 latestLogLine = source == .owned
-                    ? "Eigenes Backend laeuft auf \(localBaseURL.absoluteString)"
+                    ? "Eigenes Backend läuft auf \(localBaseURL.absoluteString)"
                     : "Externes Backend erkannt auf \(localBaseURL.absoluteString)"
                 return
             }
@@ -185,12 +191,20 @@ final class BackendController: ObservableObject {
             return
         }
 
-        latestLogLine = "Baue Node-Backend fuer die native App..."
+        latestLogLine = "Baue Node-Backend für die native App..."
         try await runProcess(
             executable: URL(fileURLWithPath: "/usr/bin/env"),
             arguments: ["npm", "run", "build"],
             currentDirectoryURL: repoRoot
         )
+    }
+
+    private func locateBackendRoot() throws -> URL {
+        if let bundled = bundledBackendRoot() {
+            return bundled
+        }
+
+        return try locateRepoRoot()
     }
 
     private func locateRepoRoot() throws -> URL {
@@ -212,8 +226,26 @@ final class BackendController: ObservableObject {
         throw NSError(
             domain: "CarusoRebornMac",
             code: 1,
-            userInfo: [NSLocalizedDescriptionKey: "Repo-Root fuer das Caruso-Reborn-Backend konnte nicht gefunden werden."]
+            userInfo: [NSLocalizedDescriptionKey: "Repo-Root für das Caruso-Reborn-Backend konnte nicht gefunden werden."]
         )
+    }
+
+    private func bundledBackendRoot() -> URL? {
+        let candidates = [
+            Bundle.main.resourceURL?.appending(path: "backend"),
+            Bundle.main.bundleURL.appending(path: "Contents/Resources/backend")
+        ].compactMap { $0 }
+
+        for candidate in candidates {
+            let packageJSON = candidate.appending(path: "package.json")
+            let nativeServer = candidate.appending(path: "dist/src/native-server.js")
+
+            if fileManager.fileExists(atPath: packageJSON.path), fileManager.fileExists(atPath: nativeServer.path) {
+                return candidate
+            }
+        }
+
+        return nil
     }
 
     private func walkUpForRepoRoot(startingAt initialURL: URL) -> URL? {
@@ -228,6 +260,60 @@ final class BackendController: ObservableObject {
             }
 
             currentURL.deleteLastPathComponent()
+        }
+
+        return nil
+    }
+
+    private func ensureAppSupportDirectory() throws -> URL {
+        let base = try fileManager.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let directory = base.appending(path: "Caruso Reborn")
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    private func backendEnvironment(
+        backendRoot: URL,
+        appSupportDirectory: URL
+    ) -> [String: String] {
+        var environment = ProcessInfo.processInfo.environment
+        environment["DATA_DIR"] = appSupportDirectory.appending(path: "backend-data").path
+        environment["CARUSO_REBORN_ENV_PATH"] = appSupportDirectory.appending(path: "backend.env").path
+        environment["CARUSO_REBORN_REPO_ROOT"] = backendRoot.path
+        return environment
+    }
+
+    private func nodeLaunchConfiguration(for backendRoot: URL) throws -> (executableURL: URL, arguments: [String]) {
+        let scriptURL = backendRoot.appending(path: "dist/src/native-server.js")
+
+        if let nodeURL = systemNodeURL() {
+            return (nodeURL, [scriptURL.path])
+        }
+
+        throw NSError(
+            domain: "CarusoRebornMac",
+            code: 4,
+            userInfo: [NSLocalizedDescriptionKey: "Node.js wurde nicht gefunden. Bitte installiere Node 20+ oder nutze die Electron-App."]
+        )
+    }
+
+    private func systemNodeURL() -> URL? {
+        let candidates = [
+            ProcessInfo.processInfo.environment["CARUSO_REBORN_NODE"],
+            "/opt/homebrew/bin/node",
+            "/usr/local/bin/node",
+            "/usr/bin/node"
+        ].compactMap { $0 }
+
+        for candidate in candidates {
+            if fileManager.isExecutableFile(atPath: candidate) {
+                return URL(fileURLWithPath: candidate)
+            }
         }
 
         return nil
@@ -389,12 +475,12 @@ final class AppModel: ObservableObject {
 
     func completeOnboarding() async {
         guard let network = selectedNetworkCandidate else {
-            lastError = "Bitte zuerst ein Netzwerk waehlen."
+            lastError = "Bitte zuerst ein Netzwerk wählen."
             return
         }
 
         guard let device = selectedOnboardingDevice else {
-            lastError = "Bitte zuerst einen Caruso auswaehlen."
+            lastError = "Bitte zuerst einen Caruso auswählen."
             return
         }
 
@@ -469,7 +555,7 @@ final class AppModel: ObservableObject {
 
     func playFavorite(_ favorite: FavoriteStation) async {
         guard let selectedDeviceURL, !selectedDeviceURL.isEmpty else {
-            lastError = "Bitte zuerst einen Caruso auswaehlen."
+            lastError = "Bitte zuerst einen Caruso auswählen."
             return
         }
 
@@ -494,7 +580,7 @@ final class AppModel: ObservableObject {
 
     func playTrack(_ track: LocalTrack) async {
         guard let selectedDeviceURL, !selectedDeviceURL.isEmpty else {
-            lastError = "Bitte zuerst einen Caruso auswaehlen."
+            lastError = "Bitte zuerst einen Caruso auswählen."
             return
         }
 
@@ -519,7 +605,7 @@ final class AppModel: ObservableObject {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Ordner hinzufuegen"
+        panel.prompt = "Ordner hinzufügen"
 
         guard panel.runModal() == .OK, let url = panel.url else {
             return
@@ -623,7 +709,7 @@ final class AppModel: ObservableObject {
 
     private func buildURL(for path: String) throws -> URL {
         guard let url = URL(string: path, relativeTo: backend.localBaseURL)?.absoluteURL else {
-            throw NSError(domain: "CarusoRebornMac", code: 3, userInfo: [NSLocalizedDescriptionKey: "Ungueltige Backend-URL fuer \(path)"])
+            throw NSError(domain: "CarusoRebornMac", code: 3, userInfo: [NSLocalizedDescriptionKey: "Ungültige Backend-URL für \(path)"])
         }
 
         return url
@@ -666,7 +752,7 @@ final class AppModel: ObservableObject {
         response: URLResponse
     ) throws -> Response {
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw NSError(domain: "CarusoRebornMac", code: 2, userInfo: [NSLocalizedDescriptionKey: "Ungueltige Backend-Antwort."])
+            throw NSError(domain: "CarusoRebornMac", code: 2, userInfo: [NSLocalizedDescriptionKey: "Ungültige Backend-Antwort."])
         }
 
         guard (200..<300).contains(httpResponse.statusCode) else {
