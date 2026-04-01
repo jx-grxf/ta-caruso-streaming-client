@@ -4,9 +4,16 @@ import Foundation
 
 @MainActor
 final class BackendController: ObservableObject {
+    enum BackendSource {
+        case none
+        case external
+        case owned
+    }
+
     @Published private(set) var isRunning = false
     @Published private(set) var lastError: String?
     @Published private(set) var latestLogLine = "Backend noch nicht gestartet."
+    @Published private(set) var source: BackendSource = .none
 
     let localBaseURL = URL(string: "http://127.0.0.1:3847")!
 
@@ -17,6 +24,10 @@ final class BackendController: ObservableObject {
         if await checkHealth() {
             isRunning = true
             lastError = nil
+            source = process == nil ? .external : .owned
+            latestLogLine = process == nil
+                ? "Externes Backend erkannt auf \(localBaseURL.absoluteString)"
+                : "Eigenes Backend laeuft auf \(localBaseURL.absoluteString)"
             return
         }
 
@@ -59,14 +70,18 @@ final class BackendController: ObservableObject {
 
                     self.process = nil
                     self.isRunning = await self.checkHealth()
+                    self.source = self.isRunning ? .external : .none
                     if !self.isRunning {
                         self.latestLogLine = "Backend wurde beendet."
+                    } else {
+                        self.latestLogLine = "Externes Backend weiterhin erreichbar auf \(self.localBaseURL.absoluteString)"
                     }
                 }
             }
 
             try process.run()
             self.process = process
+            self.source = .owned
             latestLogLine = "Backend wird gestartet..."
 
             await waitUntilHealthy()
@@ -74,17 +89,60 @@ final class BackendController: ObservableObject {
             isRunning = false
             lastError = error.localizedDescription
             latestLogLine = "Backend-Start fehlgeschlagen."
+            source = .none
         }
     }
 
     func stopOwnedBackend() {
+        guard process != nil else {
+            latestLogLine = "Kein von der App gestartetes Backend zum Stoppen vorhanden."
+            return
+        }
+
         process?.terminate()
         process = nil
         isRunning = false
+        source = .none
+        latestLogLine = "Eigenes Backend wird beendet..."
     }
 
     func clearError() {
         lastError = nil
+    }
+
+    var canStopOwnedBackend: Bool {
+        process != nil && source == .owned
+    }
+
+    var statusDescription: String {
+        switch source {
+        case .none:
+            return "Offline"
+        case .external:
+            return "Externes Backend aktiv"
+        case .owned:
+            return "Eigenes Backend aktiv"
+        }
+    }
+
+    func refreshReachability() async {
+        let reachable = await checkHealth()
+        isRunning = reachable
+
+        if process != nil {
+            source = reachable ? .owned : .none
+        } else {
+            source = reachable ? .external : .none
+        }
+
+        if reachable {
+            latestLogLine = source == .owned
+                ? "Eigenes Backend laeuft auf \(localBaseURL.absoluteString)"
+                : "Externes Backend erkannt auf \(localBaseURL.absoluteString)"
+            lastError = nil
+        } else {
+            latestLogLine = "Backend nicht erreichbar."
+        }
     }
 
     private func waitUntilHealthy() async {
@@ -92,7 +150,10 @@ final class BackendController: ObservableObject {
             if await checkHealth() {
                 isRunning = true
                 lastError = nil
-                latestLogLine = "Backend laeuft lokal auf \(localBaseURL.absoluteString)"
+                source = process == nil ? .external : .owned
+                latestLogLine = source == .owned
+                    ? "Eigenes Backend laeuft auf \(localBaseURL.absoluteString)"
+                    : "Externes Backend erkannt auf \(localBaseURL.absoluteString)"
                 return
             }
 
@@ -102,6 +163,7 @@ final class BackendController: ObservableObject {
         isRunning = await checkHealth()
         if !isRunning {
             lastError = "Das Backend hat nicht rechtzeitig auf \(localBaseURL.absoluteString) geantwortet."
+            source = .none
         }
     }
 

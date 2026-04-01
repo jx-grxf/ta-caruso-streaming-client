@@ -96,7 +96,7 @@ struct DashboardView: View {
                     Text("Die native macOS-Zentrale fuer dein bestehendes Caruso-Reborn-Backend.")
                         .font(.title3)
                         .foregroundStyle(.secondary)
-                    Label(backend.isRunning ? "Backend aktiv" : "Backend offline", systemImage: backend.isRunning ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    Label(backend.statusDescription, systemImage: backend.isRunning ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .foregroundStyle(backend.isRunning ? .green : .orange)
                 }
 
@@ -411,9 +411,9 @@ struct SettingsContentView: View {
 
                 GlassPanel {
                     VStack(alignment: .leading, spacing: 14) {
-                        sectionHeader("Backend", subtitle: "Die native App nutzt weiter das bestehende Node/Fastify-Backend.")
+                        sectionHeader("Backend", subtitle: "Das Backend ist die eigentliche Caruso-Engine: Web-Dashboard, UPnP-Bridge, Discovery, Playback und Metadaten.")
 
-                        Label(backend.isRunning ? "Backend aktiv" : "Backend offline", systemImage: backend.isRunning ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        Label(backend.statusDescription, systemImage: backend.isRunning ? "checkmark.circle.fill" : "xmark.circle.fill")
                             .foregroundStyle(backend.isRunning ? .green : .orange)
 
                         Text(backend.latestLogLine)
@@ -421,10 +421,18 @@ struct SettingsContentView: View {
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
 
+                        Text("Wenn die App ein schon laufendes Backend findet, kann sie es benutzen, aber nicht hart stoppen. Stoppen geht nur fuer ein Backend, das diese App selbst gestartet hat.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
                         HStack(spacing: 10) {
-                            AdaptiveButton("Backend starten", prominent: true) {
+                            AdaptiveButton(backend.isRunning ? "Backend-Status prüfen" : "Backend starten", prominent: true) {
                                 Task {
-                                    await backend.startIfNeeded()
+                                    if backend.isRunning {
+                                        await backend.refreshReachability()
+                                    } else {
+                                        await backend.startIfNeeded()
+                                    }
                                     await model.refreshAll()
                                 }
                             }
@@ -432,7 +440,11 @@ struct SettingsContentView: View {
                             AdaptiveButton("Eigenes Backend stoppen") {
                                 backend.stopOwnedBackend()
                             }
-                            .disabled(!backend.isRunning)
+                            .disabled(!backend.canStopOwnedBackend)
+
+                            AdaptiveButton("Web-Dashboard") {
+                                model.openWebDashboard()
+                            }
 
                             Spacer()
 
@@ -659,7 +671,7 @@ struct MenuBarExtraView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Caruso Reborn")
                 .font(.headline)
-            Label(backend.isRunning ? "Backend aktiv" : "Backend offline", systemImage: backend.isRunning ? "checkmark.circle.fill" : "xmark.circle.fill")
+            Label(backend.statusDescription, systemImage: backend.isRunning ? "checkmark.circle.fill" : "xmark.circle.fill")
                 .foregroundStyle(backend.isRunning ? .green : .orange)
             Text(model.selectedDeviceName ?? "Noch kein Caruso gewaehlt")
                 .foregroundStyle(.secondary)
