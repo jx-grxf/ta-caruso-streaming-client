@@ -10,6 +10,17 @@ APP_BUNDLE="$BUILD_ROOT/$APP_NAME.app"
 DMG_STAGE="$BUILD_ROOT/dmg"
 OUTPUT_DIR="$ROOT_DIR/release/native-mac"
 ICON_PATH="$ROOT_DIR/assets/mac/icon.icns"
+NODE_VERSION="${CARUSO_REBORN_NODE_VERSION:-$(node -p "process.version")}"
+ARCH_NAME="$(uname -m)"
+if [[ "$ARCH_NAME" == "x86_64" ]]; then
+  NODE_ARCH="x64"
+else
+  NODE_ARCH="arm64"
+fi
+NODE_DIST="node-${NODE_VERSION}-darwin-${NODE_ARCH}"
+NODE_CACHE_DIR="$BUILD_ROOT/node-runtime"
+NODE_ARCHIVE="$NODE_CACHE_DIR/${NODE_DIST}.tar.gz"
+NODE_EXTRACTED="$NODE_CACHE_DIR/$NODE_DIST"
 mkdir -p "$BUILD_ROOT" "$OUTPUT_DIR"
 rm -rf "$BACKEND_STAGE" "$APP_BUNDLE" "$DMG_STAGE"
 
@@ -27,11 +38,21 @@ cp package.json package-lock.json "$BACKEND_STAGE/"
 cp -R dist ui "$BACKEND_STAGE/"
 (cd "$BACKEND_STAGE" && npm ci --omit=dev)
 
+echo "==> Offizielle Node-Runtime laden"
+mkdir -p "$NODE_CACHE_DIR"
+if [[ ! -x "$NODE_EXTRACTED/bin/node" ]]; then
+  rm -rf "$NODE_EXTRACTED" "$NODE_ARCHIVE"
+  curl -L -o "$NODE_ARCHIVE" "https://nodejs.org/dist/${NODE_VERSION}/${NODE_DIST}.tar.gz"
+  tar -xzf "$NODE_ARCHIVE" -C "$NODE_CACHE_DIR"
+fi
+
 echo "==> App-Bundle erzeugen"
-mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
+mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources/runtime/bin"
 cp "$BIN_PATH/CarusoRebornMac" "$APP_BUNDLE/Contents/MacOS/CarusoReborn"
 chmod +x "$APP_BUNDLE/Contents/MacOS/CarusoReborn"
 cp -R "$BACKEND_STAGE" "$APP_BUNDLE/Contents/Resources/backend"
+cp "$NODE_EXTRACTED/bin/node" "$APP_BUNDLE/Contents/Resources/runtime/bin/node"
+chmod +x "$APP_BUNDLE/Contents/Resources/runtime/bin/node"
 
 if [[ -f "$ICON_PATH" ]]; then
   cp "$ICON_PATH" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"

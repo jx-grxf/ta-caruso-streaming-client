@@ -291,15 +291,24 @@ final class BackendController: ObservableObject {
     private func nodeLaunchConfiguration(for backendRoot: URL) throws -> (executableURL: URL, arguments: [String]) {
         let scriptURL = backendRoot.appending(path: "dist/src/native-server.js")
 
-        if let nodeURL = systemNodeURL() {
+        if let nodeURL = bundledNodeURL() ?? systemNodeURL() {
             return (nodeURL, [scriptURL.path])
         }
 
         throw NSError(
             domain: "CarusoRebornMac",
             code: 4,
-            userInfo: [NSLocalizedDescriptionKey: "Node.js wurde nicht gefunden. Bitte installiere Node 20+ oder nutze die Electron-App."]
+            userInfo: [NSLocalizedDescriptionKey: "Keine ausführbare Backend-Runtime gefunden. Bitte die App neu bauen oder lokal Node 20+ bereitstellen."]
         )
+    }
+
+    private func bundledNodeURL() -> URL? {
+        let bundled = Bundle.main.resourceURL?.appending(path: "runtime/bin/node")
+        guard let bundled, fileManager.isExecutableFile(atPath: bundled.path) else {
+            return nil
+        }
+
+        return bundled
     }
 
     private func systemNodeURL() -> URL? {
@@ -621,12 +630,12 @@ final class AppModel: ObservableObject {
     }
 
     func removeFolder(_ folder: String) async {
-        guard let encoded = folder.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
-            return
-        }
-
         do {
-            let _: FoldersResponse = try await request(path: "api/library/folders?path=\(encoded)", method: "DELETE")
+            let _: FoldersResponse = try await request(
+                path: "api/library/folders/remove",
+                method: "POST",
+                body: ["path": folder]
+            )
             await refreshAll()
             lastError = nil
         } catch {

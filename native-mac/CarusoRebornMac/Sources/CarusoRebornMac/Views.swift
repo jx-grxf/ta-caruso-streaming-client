@@ -42,21 +42,30 @@ struct RootView: View {
 }
 
 struct MainTabView: View {
+    private enum AppTab: Hashable {
+        case dashboard
+        case settings
+    }
+
     @ObservedObject var model: AppModel
     @ObservedObject var backend: BackendController
+    @State private var selectedTab: AppTab = .dashboard
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             DashboardView(model: model, backend: backend)
+                .tag(AppTab.dashboard)
                 .tabItem {
                     Label("Dashboard", systemImage: "dot.radiowaves.left.and.right")
                 }
 
             SettingsContentView(model: model, backend: backend, showStandaloneHeader: false)
+                .tag(AppTab.settings)
                 .tabItem {
-                    Label("Settings", systemImage: "slider.horizontal.3")
+                    Label("Einstellungen", systemImage: "slider.horizontal.3")
                 }
         }
+        .animation(.spring(response: 0.45, dampingFraction: 0.86), value: selectedTab)
     }
 }
 
@@ -74,11 +83,17 @@ struct DashboardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 dashboardHero
+                    .modifier(EntranceMotion(delay: 0.02))
                 metricsSection
+                    .modifier(EntranceMotion(delay: 0.08))
                 statusSection
+                    .modifier(EntranceMotion(delay: 0.14))
                 rendererSection
+                    .modifier(EntranceMotion(delay: 0.20))
                 favoritesSection
+                    .modifier(EntranceMotion(delay: 0.26))
                 librarySection
+                    .modifier(EntranceMotion(delay: 0.32))
             }
             .frame(maxWidth: 980)
             .padding(.horizontal, 12)
@@ -98,6 +113,7 @@ struct DashboardView: View {
                         .foregroundStyle(.secondary)
                     Label(backend.statusDescription, systemImage: backend.isRunning ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .foregroundStyle(backend.isRunning ? .green : .orange)
+                        .symbolEffect(.pulse.byLayer, isActive: backend.isRunning)
                 }
 
                 Spacer(minLength: 24)
@@ -137,6 +153,8 @@ struct DashboardView: View {
             metricCard("RAM App", model.status?.server.metrics.processMemoryRss ?? "—")
             metricCard("Tracks", model.status.map { "\($0.library.trackCount)" } ?? "0")
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.82), value: model.status?.server.metrics.cpuUsagePercent)
+        .animation(.spring(response: 0.35, dampingFraction: 0.82), value: model.status?.library.trackCount)
     }
 
     private var statusSection: some View {
@@ -195,6 +213,7 @@ struct DashboardView: View {
                             }
                         }
                     }
+                    .animation(.spring(response: 0.42, dampingFraction: 0.84), value: model.discoveredDevices)
                 }
             }
         }
@@ -227,6 +246,7 @@ struct DashboardView: View {
                             }
                         }
                     }
+                    .animation(.spring(response: 0.42, dampingFraction: 0.84), value: favorites.map(\.id))
                 } else {
                     Text("Noch keine Favoriten im Backend gespeichert.")
                         .foregroundStyle(.secondary)
@@ -272,6 +292,7 @@ struct DashboardView: View {
                             }
                         }
                     }
+                    .animation(.spring(response: 0.42, dampingFraction: 0.84), value: model.tracks.map(\.id))
                 }
             }
         }
@@ -287,6 +308,7 @@ struct DashboardView: View {
                     .font(.headline)
                     .textSelection(.enabled)
                     .lineLimit(3)
+                    .contentTransition(.interpolate)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -332,6 +354,7 @@ struct SettingsContentView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .modifier(EntranceMotion(delay: 0.02))
                 }
 
                 GlassPanel {
@@ -352,6 +375,7 @@ struct SettingsContentView: View {
                         }
                     }
                 }
+                .modifier(EntranceMotion(delay: 0.08))
 
                 GlassPanel {
                     VStack(alignment: .leading, spacing: 14) {
@@ -381,6 +405,7 @@ struct SettingsContentView: View {
                         }
                     }
                 }
+                .modifier(EntranceMotion(delay: 0.14))
 
                 GlassPanel {
                     VStack(alignment: .leading, spacing: 14) {
@@ -406,8 +431,10 @@ struct SettingsContentView: View {
                                 }
                             }
                         }
+                        .animation(.spring(response: 0.42, dampingFraction: 0.84), value: model.status?.library.folders ?? [])
                     }
                 }
+                .modifier(EntranceMotion(delay: 0.20))
 
                 GlassPanel {
                     VStack(alignment: .leading, spacing: 14) {
@@ -454,6 +481,7 @@ struct SettingsContentView: View {
                         }
                     }
                 }
+                .modifier(EntranceMotion(delay: 0.26))
 
                 HStack {
                     Spacer()
@@ -502,8 +530,12 @@ struct OnboardingView: View {
                         stepsBar
                     }
                 }
+                .modifier(EntranceMotion(delay: 0.02))
 
                 contentCard
+                    .id(step)
+                    .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
+                    .animation(.spring(response: 0.45, dampingFraction: 0.86), value: step)
 
                 GlassPanel(cornerRadius: 28, padding: 18) {
                     HStack {
@@ -529,6 +561,7 @@ struct OnboardingView: View {
                         }
                     }
                 }
+                .modifier(EntranceMotion(delay: 0.10))
             }
             .frame(maxWidth: 920)
             .padding(.horizontal, 12)
@@ -551,6 +584,7 @@ struct OnboardingView: View {
                 }
             }
         }
+        .animation(.spring(response: 0.45, dampingFraction: 0.84), value: step)
     }
 
         @ViewBuilder
@@ -712,6 +746,7 @@ struct MenuBarExtraView: View {
         }
         .padding(14)
         .frame(width: 280)
+        .modifier(EntranceMotion(delay: 0.02))
     }
 }
 
@@ -785,6 +820,7 @@ private struct GlassRow<Leading: View, Trailing: View>: View {
     let selected: Bool
     @ViewBuilder let leading: Leading
     @ViewBuilder let trailing: Trailing
+    @State private var isHovering = false
 
     init(selected: Bool = false, @ViewBuilder leading: () -> Leading, @ViewBuilder trailing: () -> Trailing) {
         self.selected = selected
@@ -807,6 +843,34 @@ private struct GlassRow<Leading: View, Trailing: View>: View {
             RoundedRectangle(cornerRadius: 22)
                 .stroke(selected ? Color.accentColor.opacity(0.45) : Color.white.opacity(0.08), lineWidth: 1)
         }
+        .scaleEffect(isHovering ? 1.008 : 1)
+        .offset(y: isHovering ? -1 : 0)
+        .shadow(color: Color.black.opacity(isHovering ? 0.18 : 0.08), radius: isHovering ? 18 : 10, y: isHovering ? 10 : 6)
+        .animation(.spring(response: 0.28, dampingFraction: 0.82), value: isHovering)
+        .onHover { hovering in
+            isHovering = hovering
+        }
+    }
+}
+
+private struct EntranceMotion: ViewModifier {
+    let delay: Double
+    @State private var isVisible = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isVisible ? 1 : 0.001)
+            .offset(y: isVisible ? 0 : 18)
+            .scaleEffect(isVisible ? 1 : 0.985, anchor: .top)
+            .task {
+                guard !isVisible else { return }
+                if delay > 0 {
+                    try? await Task.sleep(for: .seconds(delay))
+                }
+                withAnimation(.spring(response: 0.52, dampingFraction: 0.84)) {
+                    isVisible = true
+                }
+            }
     }
 }
 

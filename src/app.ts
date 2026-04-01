@@ -836,8 +836,24 @@ export async function createApp(dataDir: string, options?: {
     };
   });
 
+  app.post("/api/library/folders/remove", async (request) => {
+    const body = request.body as { path?: string };
+    if (!body.path?.trim()) {
+      throw new HttpError("Folder path is required.", 400);
+    }
+
+    const folders = await storage.removeLibraryFolder(body.path);
+    invalidateLibrarySnapshot();
+
+    return {
+      folders
+    };
+  });
+
   app.delete("/api/library/folders", async (request) => {
-    const folderPath = (request.query as { path?: string }).path;
+    const queryPath = (request.query as { path?: string }).path;
+    const bodyPath = (request.body as { path?: string } | undefined)?.path;
+    const folderPath = bodyPath ?? queryPath;
     if (!folderPath?.trim()) {
       throw new HttpError("Folder path is required.", 400);
     }
